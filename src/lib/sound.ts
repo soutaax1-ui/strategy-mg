@@ -33,6 +33,9 @@ let _currentAudio:   HTMLAudioElement | null = null;
 let _fadeOutTimer:   ReturnType<typeof setInterval> | null = null;
 let _fadeInTimer:    ReturnType<typeof setInterval> | null = null;
 let _fadeInDelay:    ReturnType<typeof setTimeout>  | null = null;
+let _onGameEnded:    (() => void) | null = null;
+
+const GAME_TRACKS = new Set<BgmTrack>(['game1', 'game2']);
 
 /* === MP3 ファイルマップ === */
 const BGM_FILES: Record<BgmTrack, string> = {
@@ -48,11 +51,37 @@ const _cache: Partial<Record<BgmTrack, HTMLAudioElement>> = {};
 function getAudio(track: BgmTrack): HTMLAudioElement {
   if (!_cache[track]) {
     const a = new Audio(BGM_FILES[track]);
-    a.loop   = true;
+    a.loop   = !GAME_TRACKS.has(track); // game tracks alternate via 'ended'
     a.volume = 0;
     _cache[track] = a;
   }
   return _cache[track]!;
+}
+
+/* === ゲームトラック交互再生 === */
+function removeGameEndedListener(): void {
+  for (const track of GAME_TRACKS) {
+    const a = _cache[track];
+    if (a && _onGameEnded) a.removeEventListener('ended', _onGameEnded);
+  }
+  _onGameEnded = null;
+}
+
+function switchGameTrack(): void {
+  const next: BgmTrack = _currentTrackId === 'game1' ? 'game2' : 'game1';
+  _currentTrackId = next;
+  const newAudio = getAudio(next);
+  _currentAudio  = newAudio;
+  newAudio.currentTime = 0;
+  fadeIn(newAudio, targetBgmVol());
+  addGameEndedListener();
+}
+
+function addGameEndedListener(): void {
+  removeGameEndedListener();
+  if (!_currentAudio) return;
+  _onGameEnded = () => switchGameTrack();
+  _currentAudio.addEventListener('ended', _onGameEnded, { once: true });
 }
 
 /* === クロスフェード === */
@@ -142,25 +171,27 @@ export async function initAudio(): Promise<void> {
 export function setBgm(track: BgmTrack): void {
   if (!_bgmInitialized) { _pendingTrack = track; return; }
 
-  const isSame    = track === _currentTrackId;
   const isPlaying = _currentAudio !== null && !_currentAudio.paused;
 
+  // ゲーム画面間の遷移でゲームBGMを中断しない
+  if (GAME_TRACKS.has(track) && _currentTrackId !== null && GAME_TRACKS.has(_currentTrackId) && isPlaying) return;
+
+  const isSame = track === _currentTrackId;
   _currentTrackId = track;
   const newAudio  = getAudio(track);
 
-  if (isSame && isPlaying) return; // 同じ曲が再生中なら継続
+  if (isSame && isPlaying) return;
 
   if (!_bgmEnabled || _allMuted) {
-    // BGM 無効: state だけ更新して再生しない
+    removeGameEndedListener();
     _currentAudio = newAudio;
     return;
   }
 
-  // 進行中の fadeIn を必ずキャンセルしてから新しい再生を開始
   clearFadeIn();
+  removeGameEndedListener();
 
   if (_currentAudio && _currentAudio !== newAudio && isPlaying) {
-    // 別の曲を再生中: クロスフェード
     const old = _currentAudio;
     _currentAudio = newAudio;
     fadeOut(old);
@@ -168,16 +199,19 @@ export function setBgm(track: BgmTrack): void {
       _fadeInDelay = null;
       newAudio.currentTime = 0;
       fadeIn(newAudio, targetBgmVol());
+      if (GAME_TRACKS.has(track)) addGameEndedListener();
     }, FADE_MS / 2);
   } else {
     _currentAudio = newAudio;
     newAudio.currentTime = 0;
     fadeIn(newAudio, targetBgmVol());
+    if (GAME_TRACKS.has(track)) addGameEndedListener();
   }
 }
 
 export function stopBgm(): void {
   clearFadeIn();
+  removeGameEndedListener();
   if (_currentAudio && !_currentAudio.paused) fadeOut(_currentAudio);
   _currentTrackId = null;
   _currentAudio   = null;

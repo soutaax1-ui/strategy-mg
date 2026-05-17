@@ -38,10 +38,8 @@ export function DashboardScreen() {
     if (!gs) navigate('/');
   }, [gs, navigate]);
 
-  // BGM
-  // 期数前半 → game1、後半 → game2 で自動切替
-  const gameBgmTrack = gs && gs.currentPeriod <= Math.floor(gs.totalPeriods / 2) ? 'game1' : 'game2';
-  useEffect(() => { setBgm(gameBgmTrack); }, [gameBgmTrack]);
+  // BGM: ゲーム画面に入ったら game1 を開始 (sound.ts 内で game1↔game2 自動交互)
+  useEffect(() => { setBgm('game1'); }, []);
 
   // フェーズが draw-ready に変わったらカードをリセット
   useEffect(() => {
