@@ -40,7 +40,8 @@ export function LobbyScreen() {
   /* ── ソケット接続 ── */
   useEffect(() => {
     const socket = connectSocket();
-    setConnState('connecting');
+    // すでに接続済みの場合は connect イベントが再発火しないため即時反映
+    setConnState(socket.connected ? 'connected' : 'connecting');
 
     socket.on('connect',    () => setConnState('connected'));
     socket.on('disconnect', () => { setConnState('disconnected'); setRoom(null); setView('menu'); });

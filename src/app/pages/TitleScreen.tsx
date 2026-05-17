@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { motion } from "motion/react";
-import { Play, RotateCcw } from "lucide-react";
+import { Play, RotateCcw, Settings, BookOpen, Users } from "lucide-react";
 import { useGame } from "../../lib/gameContext";
 import { DIFF } from "../../lib/constants";
 import { setBgm, playSfx } from "../../lib/sound";
@@ -31,6 +31,13 @@ export function TitleScreen() {
 
   return (
     <div className="w-full h-screen flex flex-col items-center justify-center relative p-8">
+      {/* Top Right Actions */}
+      <div className="absolute top-8 right-8 flex gap-4 z-20">
+        <Button variant="secondary" onClick={() => navigate('/settings')} className="p-3">
+          <Settings className="w-6 h-6" />
+        </Button>
+      </div>
+
       {/* Background Particles Placeholder */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {[...Array(20)].map((_, i) => (
@@ -53,7 +60,7 @@ export function TitleScreen() {
       </div>
 
       {/* Titles */}
-      <div className="text-center mb-12 z-10">
+      <div className="text-center mb-12 z-10 mt-8">
         <motion.h1 
           className="text-6xl text-mg-gold font-press mb-4 drop-shadow-[0_0_15px_rgba(0,217,255,0.5)]"
           initial={{ scale: 0.9, opacity: 0 }}
@@ -62,7 +69,7 @@ export function TitleScreen() {
         >
           戦略 MG
         </motion.h1>
-        <p className="text-mg-text-secondary font-dot text-lg">マネジメントゲーム シングルプレイ版</p>
+        <p className="text-mg-text-secondary font-dot text-lg">マネジメントゲーム (シングル/マルチ対応)</p>
       </div>
 
       {/* Settings Panel */}
@@ -105,7 +112,7 @@ export function TitleScreen() {
           </div>
         </div>
 
-        <div className="pt-4">
+        <div className="pt-4 flex gap-6">
           <motion.div
             animate={{ scale: [1, 1.05, 1] }}
             transition={{ repeat: Infinity, duration: 2 }}
@@ -116,24 +123,39 @@ export function TitleScreen() {
               onClick={handleStart}
             >
               <Play className="mr-4 w-8 h-8" />
-              ゲーム開始
+              シングルプレイ
+            </Button>
+          </motion.div>
+
+          <motion.div
+            animate={{ scale: [1, 1.05, 1] }}
+            transition={{ repeat: Infinity, duration: 2, delay: 0.5 }}
+          >
+            <Button
+              variant="outline"
+              className="font-press text-2xl py-6 px-12 bg-mg-surface border-mg-cyan text-mg-cyan hover:bg-mg-cyan/10 shadow-[6px_6px_0px_#000000]"
+              onClick={() => navigate('/lobby')}
+            >
+              <Users className="mr-3 w-6 h-6" />
+              マルチプレイ
             </Button>
           </motion.div>
         </div>
       </Card>
 
-      {/* Bottom anchors */}
-      <div className="absolute bottom-8 right-8 flex gap-3">
-        <Button variant="secondary" onClick={() => navigate('/lobby')}>
-          オンライン対戦
-        </Button>
-        <Button variant="secondary" onClick={() => gs && navigate('/dashboard')}>
-          <RotateCcw className="mr-2 w-4 h-4" />
-          続きから
-        </Button>
-      </div>
-      <div className="absolute bottom-8 left-8 text-mg-text-secondary font-mono text-sm">
-        v0.1
+      {/* Bottom bar — bottom-16 で Layout の音量ボタン (fixed bottom-4) と重ならない */}
+      <div className="absolute bottom-16 left-8 right-8 flex items-center justify-between z-10">
+        <div className="text-mg-text-secondary font-mono text-sm">v0.1</div>
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={() => navigate('/tutorial')}>
+            <BookOpen className="mr-2 w-4 h-4" />
+            ルール説明
+          </Button>
+          <Button variant="secondary" onClick={() => gs && navigate('/dashboard')}>
+            <RotateCcw className="mr-2 w-4 h-4" />
+            続きから
+          </Button>
+        </div>
       </div>
     </div>
   );

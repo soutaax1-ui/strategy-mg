@@ -4,6 +4,7 @@ import {
   joinRoom,
   leaveRoom,
   getRoomBySocketId,
+  getRoom,
   roomCount,
   type Room,
 } from './room.js';
@@ -13,12 +14,19 @@ import {
   updateSessionState,
   deleteSession,
   removeSocketFromSession,
+  scheduleDisconnect,
+  reassignSocket,
   type PlayerAssignment,
 } from './game.js';
 
 type Callback<T> = (res: T) => void;
 type ErrRes = { ok: false; error: string }
 const DIFFICULTIES = new Set(['easy', 'normal', 'hard']);
+
+const BLOCKED_ACTION_TYPES = new Set([
+  'INIT_GAME', 'SET_STATE', 'AI_TAKE_TURN', 'AI_COUNTER_DECIDED',
+  'ADVANCE_PERIOD', 'RESOLVE_AUCTION', 'END_PERIOD',
+]);
 
 function handleLeave(io: Server, socket: Socket): void {
   const result = leaveRoom(socket.id);
@@ -52,9 +60,18 @@ export function setupSocket(io: Server): void {
       (code: string, playerName: string, cb: Callback<{ ok: true; code: string; room: Room } | ErrRes>) => {
         if (!playerName?.trim()) { cb({ ok: false, error: 'プレイヤー名を入力してください' }); return; }
         if (!code?.trim())       { cb({ ok: false, error: 'ルームコードを入力してください' }); return; }
-        handleLeave(io, socket);
+        // 旧ルームを先に記録 (joinRoom が内部で leaveRoom を呼ぶため事前保存が必要)
+        const oldRoomInfo = getRoomBySocketId(socket.id);
+        // バリデーション後に joinRoom (内部で旧ルームから自動退出)
         const result = joinRoom(code.trim(), playerName.trim(), socket.id);
         if ('error' in result) { cb({ ok: false, error: result.error }); return; }
+        // 旧 Socket.io ルームを退出し残留メンバーに通知
+        if (oldRoomInfo) {
+          socket.leave(oldRoomInfo.code);
+          const updatedOld = getRoom(oldRoomInfo.code);
+          if (updatedOld) io.to(oldRoomInfo.code).emit('room_update', updatedOld);
+          console.log(`[leave] ${socket.id} left ${oldRoomInfo.code}`);
+        }
         socket.join(result.room.code);
         io.to(result.room.code).emit('room_update', result.room);
         console.log(`[join] ${socket.id} (${playerName}) → ${result.room.code}  (${result.room.players.length}/${result.room.maxPlayers})`);
@@ -100,9 +117,15 @@ export function setupSocket(io: Server): void {
 	        const totalPeriods = Math.max(1, Math.min(50, Math.floor(Number(payload.totalPeriods) || 10)));
 
 	        const fillWithAi = payload.fillWithAi ?? false;
-        const minPlayers  = fillWithAi ? 1 : 2;
-        if (roomInfo.room.players.length < minPlayers) {
-          cb({ ok: false, error: fillWithAi ? 'ホストが必要です' : '2人以上必要です' });
+        const playerCount = roomInfo.room.players.length;
+        const maxPlayers  = roomInfo.room.maxPlayers;
+        // fillWithAi=false は全スロットを人間で埋める必要がある
+        if (!fillWithAi && playerCount < maxPlayers) {
+          cb({ ok: false, error: `AIなしモードは${maxPlayers}人必要です (現在${playerCount}人)` });
+          return;
+        }
+        if (playerCount < 1) {
+          cb({ ok: false, error: 'ホストが必要です' });
           return;
         }
 
@@ -146,12 +169,28 @@ export function setupSocket(io: Server): void {
     });
 
 	    /* ── プレイヤーアクション (非ホスト → ホスト) ── */
-	    socket.on('player_action', (actionJson: string) => {
+	    socket.on('player_action', (actionJson: string, ack?: Callback<{ ok: boolean }>) => {
 	      const session = getSessionBySocket(socket.id);
-	      if (!session) return;
-	      if (session.hostSocketId === socket.id) return;
-	      // ホストに転送
-	      io.to(session.hostSocketId).emit('player_action', actionJson);
+	      if (!session || session.hostSocketId === socket.id) { ack?.({ ok: false }); return; }
+
+	      const assignment = session.assignments.find(a => a.socketId === socket.id);
+	      if (!assignment) { ack?.({ ok: false }); return; }
+
+	      let action: Record<string, unknown>;
+	      try {
+	        action = JSON.parse(actionJson);
+	        if (typeof action !== 'object' || action === null || typeof action.type !== 'string') {
+	          ack?.({ ok: false }); return;
+	        }
+	      } catch { ack?.({ ok: false }); return; }
+
+	      if (BLOCKED_ACTION_TYPES.has(action.type)) { ack?.({ ok: false }); return; }
+
+	      // サーバー検証済みの会社インデックスを注入（クライアントから偽造不可）
+	      action._senderCompanyIdx = assignment.companyIdx;
+
+	      io.to(session.hostSocketId).emit('player_action', JSON.stringify(action));
+	      ack?.({ ok: true });
 	    });
 
     /* ── 最新状態を要求 (再接続・遅延参加) ── */
@@ -162,17 +201,47 @@ export function setupSocket(io: Server): void {
       cb({ ok: true, stateJson: session.latestStateJson });
     });
 
+    /* ── セッション再接続 (再接続後に旧 socket ID で割り当て復元) ── */
+    socket.on(
+      'reconnect_session',
+      (
+        prevSocketId: string,
+        cb: Callback<{ ok: true; roomCode: string; companyIdx: number; isHost: boolean; assignments: PlayerAssignment[] } | ErrRes>,
+      ) => {
+        if (typeof prevSocketId !== 'string' || !prevSocketId.trim()) {
+          cb({ ok: false, error: '不正なリクエストです' }); return;
+        }
+        const result = reassignSocket(prevSocketId.trim(), socket.id);
+        if (!result) { cb({ ok: false, error: '再接続トークンが無効または期限切れです' }); return; }
+
+        const { session, companyIdx } = result;
+        socket.join(session.roomCode);
+        console.log(`[reconnect] ${prevSocketId} → ${socket.id}  room:${session.roomCode}  idx:${companyIdx}`);
+        cb({
+          ok: true,
+          roomCode: session.roomCode,
+          companyIdx,
+          isHost: session.hostSocketId === socket.id,
+          assignments: session.assignments,
+        });
+      },
+    );
+
 	    /* ── 切断 ── */
 	    socket.on('disconnect', () => {
 	      console.log(`[disconnect] ${socket.id}`);
 	      const session = getSessionBySocket(socket.id);
 	      handleLeave(io, socket);
-	      // セッションのホストが切断したら通知
+	      // ホストが切断したら即通知・セッション削除
 	      if (session && session.hostSocketId === socket.id) {
 	        io.to(session.roomCode).emit('host_disconnected');
 	        deleteSession(session.roomCode);
-	      } else {
-	        removeSocketFromSession(socket.id);
+	      } else if (session) {
+	        // 非ホスト: 30秒のグレースピリアドで再接続を待つ
+	        scheduleDisconnect(socket.id, (roomCode) => {
+	          console.log(`[grace-expired] ${socket.id} removed from ${roomCode}`);
+	          io.to(roomCode).emit('player_disconnected', { socketId: socket.id });
+	        });
 	      }
 	    });
   });

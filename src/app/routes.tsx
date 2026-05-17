@@ -7,6 +7,9 @@ import { AccountingScreen } from "./pages/AccountingScreen";
 import { MarketScreen } from "./pages/MarketScreen";
 import { ResultsScreen } from "./pages/ResultsScreen";
 import { LobbyScreen } from "./pages/LobbyScreen";
+import { TutorialScreen } from "./pages/TutorialScreen";
+import { HistoryScreen } from "./pages/HistoryScreen";
+import { SettingsScreen } from "./pages/SettingsScreen";
 
 export const router = createBrowserRouter([
   {
@@ -20,6 +23,9 @@ export const router = createBrowserRouter([
       { path: "market", Component: MarketScreen },
       { path: "results", Component: ResultsScreen },
       { path: "lobby", Component: LobbyScreen },
+      { path: "tutorial", Component: TutorialScreen },
+      { path: "history", Component: HistoryScreen },
+      { path: "settings", Component: SettingsScreen },
     ],
   },
 ]);

@@ -134,7 +134,7 @@ export function DashboardScreen() {
           )}
 
           {/* Phase: period-done */}
-          {ui.phase === 'period-done' && (
+          {ui.phase === 'period-done' && (!isMultiplayer || isHost) && (
             <div className="text-center">
               <div className="font-dot text-2xl text-mg-gold mb-6">第{gs.currentPeriod}期 終了</div>
               <div className="font-noto text-mg-text-secondary mb-8">全10ラウンドが完了しました。期末決算に進みます。</div>
@@ -270,7 +270,7 @@ export function DashboardScreen() {
           <MapPin size={16} className="mr-2" /> 市場ビュー
         </Button>
         <div className="flex gap-3">
-          {ui.phase === 'period-done' && (
+          {ui.phase === 'period-done' && (!isMultiplayer || isHost) && (
             <Button variant="primary" size="sm" onClick={handleEndPeriod}>
               期末決算へ <ChevronRight size={16} className="ml-1" />
             </Button>

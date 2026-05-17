@@ -5,7 +5,7 @@ import { Card } from '../components/Card';
 import { motion } from 'motion/react';
 // @ts-ignore
 import confetti from 'canvas-confetti';
-import { Crown, Medal, RotateCcw, Home } from 'lucide-react';
+import { Crown, Medal, RotateCcw, Home, History } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useGame } from '../../lib/gameContext';
 import { equity, fmt } from '../../lib/gameState';
@@ -203,6 +203,9 @@ export function ResultsScreen() {
           onClick={() => window.location.reload()}
         >
           <RotateCcw className="mr-2 w-5 h-5" /> もう一度プレイ
+        </Button>
+        <Button variant="secondary" size="lg" onClick={() => navigate('/history')}>
+          <History className="mr-2" /> 履歴を見る
         </Button>
       </motion.div>
     </div>

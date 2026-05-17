@@ -115,9 +115,43 @@ export function MultiplayerBridge() {
   useEffect(() => {
     const socket = connectSocket();
 
+    /* 再接続時: 旧 socket ID でセッション復元を試みる */
+    function handleConnect() {
+      const prevId = sessionStorage.getItem('_mp_socket_id');
+      sessionStorage.setItem('_mp_socket_id', socket.id!);
+      if (!prevId || prevId === socket.id) return;
+      socket.emit(
+        'reconnect_session',
+        prevId,
+        (res: { ok: true; roomCode: string; companyIdx: number; isHost: boolean; assignments: PlayerAssignment[] } | { ok: false; error: string }) => {
+          if (!res.ok) return;
+          _setSession({
+            isMultiplayer: true,
+            isHost: res.isHost,
+            myCompanyIdx: res.companyIdx,
+            assignments: res.assignments,
+            roomCode: res.roomCode,
+          });
+          socket.emit(
+            'request_state',
+            (stateRes: { ok: true; stateJson: string } | { ok: false; error: string }) => {
+              if (!stateRes.ok) return;
+              try {
+                const { gs: syncGs, ui: syncUi } = JSON.parse(stateRes.stateJson) as { gs: GameState; ui: UiState };
+                dispatch({ type: 'SET_STATE', gs: syncGs, ui: syncUi });
+                navigate('/dashboard');
+              } catch {}
+            },
+          );
+        },
+      );
+    }
+    socket.on('connect', handleConnect);
+
     /* game_started: 全員が受信 */
     socket.on('game_started', (payload: StartedPayload) => {
       const myId     = socket.id!;
+      sessionStorage.setItem('_mp_socket_id', myId);
       const myAssign = payload.assignments.find(a => a.socketId === myId);
       const iAmHost  = myId === payload.hostSocketId;
 
@@ -178,9 +212,10 @@ export function MultiplayerBridge() {
 
     /* player_action: ホストが非ホストのアクションを受信して dispatch */
     socket.on('player_action', (actionJson: string) => {
-      // isHost は closure のため最新値を参照するよう ref で管理
       try {
-        const action = JSON.parse(actionJson) as GameAction;
+        const action = JSON.parse(actionJson) as GameAction & { _senderCompanyIdx?: unknown };
+        // サーバーが注入した _senderCompanyIdx がない場合は不正パケットとして棄却
+        if (typeof action._senderCompanyIdx !== 'number') return;
         dispatch(action);
       } catch (e) {
         console.warn('[mp] player_action parse error', e);
@@ -190,9 +225,12 @@ export function MultiplayerBridge() {
     /* ホスト切断 */
     socket.on('host_disconnected', () => {
       _setSession(defaultSession);
+      dispatch({ type: 'RESET_GAME' });
+      navigate('/');
     });
 
     return () => {
+      socket.off('connect', handleConnect);
       socket.off('game_started');
       socket.off('game_state');
       socket.off('player_action');

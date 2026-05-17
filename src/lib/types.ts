@@ -243,7 +243,8 @@ export type GameAction =
   | { type: 'AI_PERIOD_START_FINANCE'; companyId: string }
   | { type: 'ADVANCE_TURN' }
   | { type: 'AI_TAKE_TURN'; company: Company }
-  | { type: 'SET_STATE'; gs: GameState; ui: UiState };
+  | { type: 'SET_STATE'; gs: GameState; ui: UiState }
+  | { type: 'RESET_GAME' };
 
 /* === 画面フェーズ === */
 export type GamePhase =

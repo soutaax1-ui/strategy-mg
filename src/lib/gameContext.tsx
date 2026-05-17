@@ -369,6 +369,9 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
       const company = action.company
         ? gs.companies.find(c => c.id === action.company?.id) ?? action.company
         : gs.companies[0];
+      // 現在の子ターン会社と一致しない場合は不正アクション
+      const expectedPass = gs.currentAuction.children[gs.currentAuction.childIdx];
+      if (!expectedPass || company.id !== expectedPass.id) return state;
       let newGs = addLog(gs, `${company.name} はパス`, company.id === 'player' ? 'log-player' : '');
       newGs = { ...newGs, currentAuction: { ...newGs.currentAuction!, childIdx: newGs.currentAuction!.childIdx + 1 } };
       return { ...state, gs: newGs };
@@ -380,6 +383,9 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
       const player     = action.company
         ? gs.companies.find(c => c.id === action.company?.id) ?? action.company
         : gs.companies[0];
+      // 現在の子ターン会社と一致しない場合は不正アクション
+      const expectedCounter = gs.currentAuction.children[gs.currentAuction.childIdx];
+      if (!expectedCounter || player.id !== expectedCounter.id) return state;
       const city       = CITIES.find(c => c.id === gs.currentAuction!.cityId) ?? CITIES[0];
       const qty        = Math.max(0, Math.min(action.qty, player.productInventory, gs.currentAuction.cityVol));
       const price      = Math.max(city.priceMin, Math.min(city.priceMax, action.price));
@@ -436,7 +442,7 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
 
     /* ---- 期末処理 ---- */
     case 'END_PERIOD': {
-      if (!gs) return state;
+      if (!gs || ui.phase !== 'period-done') return state;
       const companies = gs.companies.map(c => applyPostMarket(c, gs.rate));
       let newGs = { ...gs, companies };
       // プレイヤーの期末仕訳を MX に記録
@@ -548,6 +554,10 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
       if (!gs) return state;
       return { ...state, gs: recordTxn(gs, action.dr, action.cr, action.amount, action.desc) };
     }
+
+    /* ---- ゲームリセット (ホスト切断時など) ---- */
+    case 'RESET_GAME':
+      return initialState;
 
     default:
       return state;
