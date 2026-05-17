@@ -7,9 +7,10 @@ interface Props {
   expression:  MascotExpression;
   reaction:    MascotReaction;
   speech?:     string;
+  className?:  string;
 }
 
-export function PresidentMascot({ characterId, expression, reaction, speech }: Props) {
+export function PresidentMascot({ characterId, expression, reaction, speech, className }: Props) {
   const [visibleSpeech, setVisibleSpeech] = useState<string | undefined>(undefined);
 
   // speech prop が変化したら表示 → 2秒後に自動消去
@@ -26,11 +27,11 @@ export function PresidentMascot({ characterId, expression, reaction, speech }: P
     : `mascot-react-${reaction}`;
 
   return (
-    <div className="fixed bottom-0 left-4 z-40 flex flex-col items-start select-none pointer-events-none">
+    <div className={`fixed bottom-6 right-6 z-30 flex flex-col items-end select-none pointer-events-none ${className ?? ''}`}>
       {/* 吹き出し — キャラの右上に表示 */}
       {visibleSpeech && (
         <div
-          className="mascot-speech font-dot ml-8 mb-3"
+          className="mascot-speech font-dot mr-4 mb-3"
           role="status"
           aria-live="polite"
         >
