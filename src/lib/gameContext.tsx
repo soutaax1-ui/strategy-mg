@@ -229,10 +229,20 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
         return c.type === 'ai' ? aiPeriodStartFinance(c) : c;
       });
 
+      // マスコット: 借入/返済 → 期開始
+      const charIdPS = companies[0]?.characterId ?? 'mecha';
+      let mascotPS = ui.mascot;
+      if (borrow > 0) {
+        mascotPS = buildMascotReaction('borrow', charIdPS, mascotPS);
+      } else if (actualRepay > 0) {
+        mascotPS = buildMascotReaction('repay', charIdPS, mascotPS);
+      }
+      mascotPS = buildMascotReaction('periodStart', charIdPS, mascotPS);
+
       return {
         ...state,
         gs: { ...gs, companies },
-        ui: { ...ui, phase: 'draw-ready' },
+        ui: { ...ui, phase: 'draw-ready', mascot: mascotPS },
       };
     }
 
@@ -243,10 +253,12 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
       const newGs = { ...gs, mainDeck: deck };
 
       if (card.type === 'risk-trigger') {
+        const charId = gs.companies[0]?.characterId ?? 'mecha';
+        const mascot = buildMascotReaction('riskCardDraw', charId, ui.mascot);
         return {
           ...state,
           gs: newGs,
-          ui: { ...ui, phase: 'risk-trigger', drawnCard: card, riskTarget: gs.companies[gs.playerIdx] },
+          ui: { ...ui, phase: 'risk-trigger', drawnCard: card, riskTarget: gs.companies[gs.playerIdx], mascot },
         };
       }
       return {
@@ -271,10 +283,12 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
       if (card.type === 'negative' && updated.insChips > 0) {
         updated.insChips = Math.max(0, updated.insChips - 1);
         newGs = addLog(newGs, `🛡️ ${company.name} — 保険発動！「${card.name}」を無効化`, 'log-good');
+        const charId0 = gs.companies[0]?.characterId ?? 'mecha';
+        const mascot0 = buildMascotReaction('riskCardGood', charId0, ui.mascot);
         return {
           ...state,
           gs: updateCompany(newGs, updated),
-          ui: { ...ui, phase: 'risk-result', drawnRiskCard: card, riskTarget: updated },
+          ui: { ...ui, phase: 'risk-result', drawnRiskCard: card, riskTarget: updated, mascot: mascot0 },
         };
       }
 
@@ -372,10 +386,19 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
           break;
       }
 
+      const charIdR = gs.companies[0]?.characterId ?? 'mecha';
+      let mascotR = ui.mascot;
+      if (card.id === 'rd-success') {
+        mascotR = buildMascotReaction('researchChipGain', charIdR, ui.mascot);
+      } else if (card.type === 'negative') {
+        mascotR = buildMascotReaction('riskCardBad', charIdR, ui.mascot);
+      } else {
+        mascotR = buildMascotReaction('riskCardGood', charIdR, ui.mascot);
+      }
       return {
         ...state,
         gs: updateCompany(newGs, updated),
-        ui: { ...ui, phase: 'risk-result', drawnRiskCard: card, riskTarget: updated },
+        ui: { ...ui, phase: 'risk-result', drawnRiskCard: card, riskTarget: updated, mascot: mascotR },
       };
     }
 
@@ -490,6 +513,10 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
       if (companies[0].cash < 30) {
         mascot = buildMascotReaction('cashCrisis', charId, mascot);
       }
+      if (pr.interest > 0) {
+        mascot = buildMascotReaction('interestPaid', charId, mascot);
+      }
+      mascot = buildMascotReaction('periodEnd', charId, mascot);
       return { ...state, gs: newGs, ui: { ...ui, phase: 'period-end', mascot } };
     }
 
@@ -528,6 +555,8 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
           newUi = { ...newUi, mascot: buildMascotReaction('productionStart', charId, ui.mascot) };
         } else if (action.actionId === 'rd') {
           newUi = { ...newUi, mascot: buildMascotReaction('researchStart', charId, ui.mascot) };
+        } else if (action.actionId === 'hire') {
+          newUi = { ...newUi, mascot: buildMascotReaction('recruit', charId, ui.mascot) };
         }
       }
       if (newGs.currentAuction) {

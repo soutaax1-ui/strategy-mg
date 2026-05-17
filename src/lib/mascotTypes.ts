@@ -41,7 +41,18 @@ export type MascotEvent =
   | 'aiThreat'
   | 'playerJoin'
   | 'playerLeave'
-  | 'otherPlayerBid';
+  | 'otherPlayerBid'
+  | 'riskCardDraw'
+  | 'riskCardGood'
+  | 'riskCardBad'
+  | 'borrow'
+  | 'repay'
+  | 'interestPaid'
+  | 'recruit'
+  | 'periodStart'
+  | 'periodEnd'
+  | 'researchChipGain'
+  | 'idleTooLong';
 
 export interface MascotState {
   characterId: MascotId;

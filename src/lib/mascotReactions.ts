@@ -26,6 +26,17 @@ export const reactionMap: Record<MascotEvent, ReactionConfig> = {
   playerJoin:        { expression: 'joy',      reaction: 'hop',      duration: 800,  showSpeech: true,  priority: 'Medium' },
   playerLeave:       { expression: 'sadness',  reaction: 'nod',      duration: 600,  showSpeech: true,  priority: 'Low'    },
   otherPlayerBid:    { expression: 'surprise', reaction: 'leanBack', duration: 800,  showSpeech: true,  priority: 'Medium' },
+  riskCardDraw:      { expression: 'surprise', reaction: 'leanBack', duration: 800,  showSpeech: true,  priority: 'Medium' },
+  riskCardGood:      { expression: 'joy',      reaction: 'hop',      duration: 800,  showSpeech: true,  priority: 'Medium' },
+  riskCardBad:       { expression: 'sadness',  reaction: 'shake',    duration: 800,  showSpeech: true,  priority: 'Medium' },
+  borrow:            { expression: 'normal',   reaction: 'nod',      duration: 600,  showSpeech: true,  priority: 'Low'    },
+  repay:             { expression: 'joy',      reaction: 'nod',      duration: 600,  showSpeech: true,  priority: 'Low'    },
+  interestPaid:      { expression: 'anger',    reaction: 'shake',    duration: 800,  showSpeech: true,  priority: 'Medium' },
+  recruit:           { expression: 'joy',      reaction: 'hop',      duration: 800,  showSpeech: true,  priority: 'Low'    },
+  periodStart:       { expression: 'normal',   reaction: 'ready',    duration: 600,  showSpeech: true,  priority: 'Low'    },
+  periodEnd:         { expression: 'normal',   reaction: 'nod',      duration: 600,  showSpeech: true,  priority: 'Low'    },
+  researchChipGain:  { expression: 'joy',      reaction: 'bigHop',   duration: 1200, showSpeech: true,  priority: 'Medium' },
+  idleTooLong:       { expression: 'surprise', reaction: 'hop',      duration: 800,  showSpeech: true,  priority: 'Low'    },
 };
 
 type SpeechLines = Record<MascotEvent, [string, string, string]>;
@@ -56,6 +67,17 @@ const mechaLines: SpeechLines = {
   playerJoin:         ['新規プレイヤーを検出しました。', 'プレイヤーが参加しました。', 'マルチプレイモード：参加者増加。'],
   playerLeave:        ['プレイヤーが退出しました。', '参加者が減少しました。', 'マルチプレイ：プレイヤー退出を記録。'],
   otherPlayerBid:     ['他プレイヤーの入札を検知。競合分析を更新。', 'ライバルが動いています。対応策を検討中。', '市場競争が激化しています。'],
+  riskCardDraw:       ['リスクカードをドローシマス。', 'イベントカード処理中。', 'ランダムイベントを検出シマシタ。'],
+  riskCardGood:       ['プラスイベント発生。ラッキーデス。', '有利な条件を取得シマシタ。', 'ポジティブイベントを記録シマシタ。'],
+  riskCardBad:        ['マイナスイベントが発生シマシタ。', 'デメリット条件を検出。対処が必要デス。', '不利なイベントを記録シマシタ。'],
+  borrow:             ['借入処理を実行シマス。', '負債データを更新シマシタ。', '資金調達完了デス。'],
+  repay:              ['返済処理を実行シマス。', '負債を削減シマシタ。', '返済完了。財務状態を更新デス。'],
+  interestPaid:       ['利息支払いを処理シマシタ。コストデス。', '金利コストを記録シマシタ。', '借入コストが発生シマシタ。'],
+  recruit:            ['人材採用処理完了。', '新規スタッフを登録シマシタ。', '人的資源を拡充デス。'],
+  periodStart:        ['新しい期が始まりマス。', '期開始処理を実行シマス。', '新期スタート。戦略を更新シマス。'],
+  periodEnd:          ['期末処理を実行シマス。', '今期の活動データを記録シマシタ。', '期終了。データ集計中デス。'],
+  researchChipGain:   ['研究チップを取得シマシタ！', '技術リソースが増加シマシタ！', 'R&Dチップ獲得。技術優位性が高まりマス！'],
+  idleTooLong:        ['行動待機時間が超過シマシタ。', '早急に行動選択ヲ推奨シマス。', 'タイムアウトが近づいています。'],
 };
 
 const kameLines: SpeechLines = {
@@ -84,6 +106,17 @@ const kameLines: SpeechLines = {
   playerJoin:         ['おお、新しい仲間が来たのう！', 'よく来たのう！一緒に頑張ろうぞ！', '賑やかになるのう！'],
   playerLeave:        ['寂しくなるのう…', 'また遊びに来てくれると良いのじゃが。', '無事に帰れるとよいのう。'],
   otherPlayerBid:     ['おっ、ライバルが動いたのう。', 'なかなかやるのう。', '気を引き締めねばのう。'],
+  riskCardDraw:       ['さて、どんなカードじゃろうのう。', 'リスクカードが来たのう。', '運命のカードじゃな。'],
+  riskCardGood:       ['おお！ラッキーじゃのう！', '良いことが起きたのう！', '運が向いてきたぞい！'],
+  riskCardBad:        ['うむ…良くないことが起きたのう。', '不運じゃが、乗り越えようぞ。', 'つらいことじゃが、仕方ないのう。'],
+  borrow:             ['借金はしたくないが…仕方ないのう。', 'お金を借りることにしたのう。', '返せるうちに借りることにするのう。'],
+  repay:              ['借金を返せたのう。よかった！', '負債を減らせたのう。', 'きちんと返済できたのう。'],
+  interestPaid:       ['利子がかかったのう…痛いのう。', '借金の利息じゃ。節約せねばのう。', 'お金を借りるのはコストがかかるのう。'],
+  recruit:            ['新しい仲間を雇ったのう！', '人材確保は大切じゃのう。', '頑張ってくれると良いのじゃが。'],
+  periodStart:        ['さあ、新しい期が始まるのう。', '今期も全力を尽くすぞい！', '新しい期じゃ。気を引き締めてのう。'],
+  periodEnd:          ['今期も終わったのう。', 'よく頑張ったのう。', '今期の結果を振り返ろうかのう。'],
+  researchChipGain:   ['おお！研究チップが手に入ったのう！', '素晴らしい成果じゃ！', '技術が進歩したのう！'],
+  idleTooLong:        ['そろそろ動かんといかんのう。', '時間が経ちすぎておるぞい。', '考えすぎも良くないのう。'],
 };
 
 const fukuLines: SpeechLines = {
@@ -112,6 +145,17 @@ const fukuLines: SpeechLines = {
   playerJoin:         ['新しいプレイヤーきたー！', 'いらっしゃい！一緒に遊ぼう！', 'わーい！仲間が増えた！'],
   playerLeave:        ['えー！帰っちゃうの！？', '寂しいな…またね！', '行っちゃった…また来てね！'],
   otherPlayerBid:     ['ライバルが入札してきた！', '負けないぞー！', 'うわー！競争が激しい！'],
+  riskCardDraw:       ['リスクカードだよ！どきどきする！', 'どんなカードかな！？', 'ドキドキするネ！'],
+  riskCardGood:       ['やったー！いいことがあったよ！', 'ラッキー！ラッキー！', 'ヤッター！いいカードアル！'],
+  riskCardBad:        ['えー！悪いカードだー！', 'ついてない！くやしい！', 'ガーン！悪いことが起きたよ！'],
+  borrow:             ['お金借りちゃった！', '借金したよ。返せるかな…', 'お金借りたアル。'],
+  repay:              ['借金返せた！すっきり！', '返済完了！やった！', '借金なくなったネ！'],
+  interestPaid:       ['利子払ったよ。もったいない！', '利息ってお金かかるんだね…', '利子！くやしいアル！'],
+  recruit:            ['新しい仲間が増えたよ！', '採用成功！よろしくね！', '仲間が増えたネ！わーい！'],
+  periodStart:        ['新しい期が始まったよ！', 'よーし！今期も頑張るよ！', '新期スタートアル！全力でいくよ！'],
+  periodEnd:          ['今期終わった！お疲れ様！', '今期もよく頑張ったね！', '今期終了アル！どうだったかな！'],
+  researchChipGain:   ['研究チップゲット！やったー！', 'すごい！チップが手に入った！', '研究チップゲットアル！最高！'],
+  idleTooLong:        ['早く動かないと！', 'ぼーっとしてたら損するよ！', 'はやくはやく！'],
 };
 
 const rokiLines: SpeechLines = {
@@ -140,6 +184,17 @@ const rokiLines: SpeechLines = {
   playerJoin:         ['新しいプレイヤーが参加しました！', 'よろしくお願いします！', '一緒に頑張りましょう！'],
   playerLeave:        ['プレイヤーが退出しました。', 'また一緒に遊びましょう。', 'お疲れ様でした。'],
   otherPlayerBid:     ['他のプレイヤーが動いています。', '対応策を考えます。', '油断できません。'],
+  riskCardDraw:       ['リスクカードです。どうなるでしょうか。', 'イベントカードを引きました。', 'カードの内容を確認します。'],
+  riskCardGood:       ['よいことが起きました！', '吉報です。しっかり活かします。', 'ポジティブな結果でした！'],
+  riskCardBad:        ['残念な結果でした…', '困難な状況ですが、乗り越えます。', '不運ですが、前向きに対処します。'],
+  borrow:             ['借入をしました。返済計画を立てます。', 'お金を借りることにしました。', '資金を確保しました。慎重に使います。'],
+  repay:              ['返済できました！ほっとしました。', '負債を減らせました。よかったです。', 'きちんと返済しました。'],
+  interestPaid:       ['利息の支払いです。借入コストですね。', '金利が発生しました。注意が必要です。', '利息を支払いました。節約を心がけます。'],
+  recruit:            ['採用できました！一緒に頑張ります。', '新しい仲間が加わりました！', '人材を確保しました。よろしくお願いします。'],
+  periodStart:        ['新しい期が始まります。頑張ります。', '今期も誠実に取り組みます。', '期が始まりました。精一杯努力します。'],
+  periodEnd:          ['今期が終わりました。', '今期もお疲れ様でした。', '今期の振り返りをします。'],
+  researchChipGain:   ['研究チップを獲得しました！', '素晴らしい成果です！', '研究の努力が報われました！'],
+  idleTooLong:        ['そろそろ行動した方がよいかもしれません。', '時間が経っています。考えすぎていませんか？', '次の行動を選びましょう。'],
 };
 
 const stLines: SpeechLines = {
@@ -168,6 +223,17 @@ const stLines: SpeechLines = {
   playerJoin:         ['新たな知性体を検出した。', 'この星の生命体がまた一人…', '新しい対戦相手が来た。'],
   playerLeave:        ['一つの知性体が去った…', 'この星の生命体は来ては去る。', 'また会えるかもしれない。'],
   otherPlayerBid:     ['他の競合者が動いた…', 'この星の競争…観察中。', '対抗戦略を更新。'],
+  riskCardDraw:       ['ランダムイベントシーケンス…開始。', 'この星のリスク要因…出現した。', '未知の変数を引き当てた。'],
+  riskCardGood:       ['有利な宇宙的偶然を引き当てた。', 'ポジティブイベント…記録した。', 'この星には幸運という概念がある。'],
+  riskCardBad:        ['不利なシーケンスが発生した…', 'ネガティブイベントを観測した。', '宇宙的な不運を経験した。'],
+  borrow:             ['この星の金融システムを活用した。', '資金調達プロトコル…実行。', '借入という手段を選んだ。'],
+  repay:              ['負債を解消した。財務を改善。', '返済完了。負債ゼロに近づいた。', 'この星の借金返済…完了した。'],
+  interestPaid:       ['金利コストが発生した…非効率だ。', '利息支払い…観測した。', '借入の代償を払った。'],
+  recruit:            ['新たな人的資源を確保した。', '仲間が増えた。戦力が向上する。', 'この星の採用システム…活用した。'],
+  periodStart:        ['新しいサイクルが始まる…', '次の期に移行する。', '新期開始。データを更新する。'],
+  periodEnd:          ['このサイクルが終了した。', '期末データを収集…', 'このサイクルの成果を分析する。'],
+  researchChipGain:   ['テクノロジーリソースを取得した！', '研究チップ…この星の知識の結晶だ。', '技術的優位性が増した！'],
+  idleTooLong:        ['時間の流れを観測している…', 'この星では時間は貴重なリソースだ。', '行動を促すシグナルを送る。'],
 };
 
 export const speechMap: Record<MascotId, SpeechLines> = {

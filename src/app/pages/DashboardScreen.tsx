@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -25,7 +25,7 @@ const TEXT_COLOR: Record<string, string> = {
 
 export function DashboardScreen() {
   const navigate  = useNavigate();
-  const { gs, ui, dispatch } = useGame();
+  const { gs, ui, dispatch, triggerMascotEvent } = useGame();
   const fallbackPlayer = usePlayer();
   const mpDispatch = useMpDispatch();
   const { isMultiplayer, isHost, myCompanyIdx, assignments } = useMultiplayer();
@@ -52,6 +52,25 @@ export function DashboardScreen() {
   useEffect(() => {
     if (ui.phase === 'auction' && (!isMultiplayer || isHost)) navigate('/bidding');
   }, [ui.phase, navigate, isMultiplayer, isHost]);
+
+  // アイドルタイマー: 60秒操作なしで idleTooLong イベント発火
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resetIdleTimer = useCallback(() => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => {
+      triggerMascotEvent('idleTooLong');
+    }, 60_000);
+  }, [triggerMascotEvent]);
+  useEffect(() => {
+    if (ui.phase !== 'draw-ready' && ui.phase !== 'action-menu') return;
+    resetIdleTimer();
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart'] as const;
+    events.forEach(e => window.addEventListener(e, resetIdleTimer));
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      events.forEach(e => window.removeEventListener(e, resetIdleTimer));
+    };
+  }, [ui.phase, resetIdleTimer]);
 
   // マルチ: 自分の会社番号のターンが「プレイヤーターン」
   const effectiveMyIdx = isMultiplayer ? myCompanyIdx : 0;
@@ -350,7 +369,7 @@ function PeriodStartView({ gs, player, dispatch }: { gs: GameState; player: Comp
         onClick={() => dispatch({ type: 'PERIOD_START_FINANCE', borrow, repay, company: player })}
         className="shadow-[6px_6px_0px_#000]"
       >
-        期を開始する <ChevronRight className="ml-2" />
+        第{gs.currentPeriod}期を開始する <ChevronRight className="ml-2" />
       </Button>
     </div>
   );
