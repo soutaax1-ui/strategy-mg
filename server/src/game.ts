@@ -1,7 +1,12 @@
 export interface PlayerAssignment {
-  socketId: string;
+  socketId:   string;
   playerName: string;
   companyIdx: number; // 0-3
+  charaData?: {
+    companyName:   string;
+    presidentName: string;
+    characterId:   string;
+  };
 }
 
 export interface GameSession {

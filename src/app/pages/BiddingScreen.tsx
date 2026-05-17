@@ -318,6 +318,8 @@ export function BiddingScreen() {
           expression={ui.mascot?.expression ?? 'normal'}
           reaction={ui.mascot?.reaction ?? 'idle'}
           speech={ui.mascot?.speech}
+          expiresAt={ui.mascot?.expiresAt}
+          eventId={ui.mascot?.eventId}
         />
       )}
     </div>

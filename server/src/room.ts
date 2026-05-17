@@ -1,6 +1,13 @@
+export interface CharaData {
+  companyName:   string;
+  presidentName: string;
+  characterId:   string;
+}
+
 export interface Player {
-  id: string;    // socket.id
-  name: string;
+  id:        string;    // socket.id
+  name:      string;
+  charaData?: CharaData;
 }
 
 export interface Room {
@@ -28,14 +35,14 @@ function generateCode(): string {
   return code;
 }
 
-export function createRoom(playerName: string, socketId: string): Room {
+export function createRoom(playerName: string, socketId: string, charaData?: CharaData): Room {
   // 既存ルームから退出
   leaveRoom(socketId);
 
   const code = generateCode();
   const room: Room = {
     code,
-    players: [{ id: socketId, name: playerName }],
+    players: [{ id: socketId, name: playerName, charaData }],
     maxPlayers: 4,
     hostId: socketId,
     createdAt: new Date(),
@@ -49,6 +56,7 @@ export function joinRoom(
   code: string,
   playerName: string,
   socketId: string,
+  charaData?: CharaData,
 ): { room: Room } | { error: string } {
   const key = code.toUpperCase();
   const room = rooms.get(key);
@@ -61,7 +69,7 @@ export function joinRoom(
   // 既存ルームから退出してから参加
   leaveRoom(socketId);
 
-  room.players.push({ id: socketId, name: playerName });
+  room.players.push({ id: socketId, name: playerName, charaData });
   socketToRoom.set(socketId, key);
   return { room };
 }

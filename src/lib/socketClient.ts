@@ -24,9 +24,16 @@ export function disconnectSocket(): void {
 }
 
 /* ── 共有型 (server/src/room.ts と合わせること) ── */
+export interface CharaData {
+  companyName:   string;
+  presidentName: string;
+  characterId:   string;
+}
+
 export interface RoomPlayer {
-  id: string;
-  name: string;
+  id:        string;
+  name:      string;
+  charaData?: CharaData;
 }
 
 export interface Room {

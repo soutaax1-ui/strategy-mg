@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { MascotId, MascotExpression, MascotReaction } from '../../lib/mascotTypes';
+import { useGame } from '../../lib/gameContext';
 import '../styles/mascot.css';
 
 interface Props {
@@ -7,19 +8,31 @@ interface Props {
   expression:  MascotExpression;
   reaction:    MascotReaction;
   speech?:     string;
+  expiresAt?:  number;
+  eventId?:    number;
   className?:  string;
 }
 
-export function PresidentMascot({ characterId, expression, reaction, speech, className }: Props) {
+export function PresidentMascot({ characterId, expression, reaction, speech, expiresAt, eventId, className }: Props) {
+  const { dispatch } = useGame();
   const [visibleSpeech, setVisibleSpeech] = useState<string | undefined>(undefined);
+  const firedEventIdRef = useRef<number | undefined>(undefined);
 
-  // speech prop が変化したら表示 → 2秒後に自動消去
+  // speech / expiresAt が変化したら表示し、期限切れで idle リセット
   useEffect(() => {
     if (!speech) { setVisibleSpeech(undefined); return; }
     setVisibleSpeech(speech);
-    const t = setTimeout(() => setVisibleSpeech(undefined), 2000);
+    const delay = expiresAt ? Math.max(300, expiresAt - Date.now()) : 2000;
+    const t = setTimeout(() => {
+      setVisibleSpeech(undefined);
+      // 同じ eventId の重複 dispatch を防ぐ
+      if (eventId !== undefined && firedEventIdRef.current !== eventId) {
+        firedEventIdRef.current = eventId;
+        dispatch({ type: 'RESET_MASCOT' });
+      }
+    }, delay);
     return () => clearTimeout(t);
-  }, [speech]);
+  }, [speech, expiresAt, eventId, dispatch]);
 
   const imgSrc  = `/characters/${characterId}_${expression}.png`;
   const animCls = reaction === 'idle'

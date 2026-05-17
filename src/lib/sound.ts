@@ -31,6 +31,8 @@ let _allMuted   = false;
 let _currentTrackId: BgmTrack | null = null;
 let _currentAudio:   HTMLAudioElement | null = null;
 let _fadeOutTimer:   ReturnType<typeof setInterval> | null = null;
+let _fadeInTimer:    ReturnType<typeof setInterval> | null = null;
+let _fadeInDelay:    ReturnType<typeof setTimeout>  | null = null;
 
 /* === MP3 ファイルマップ === */
 const BGM_FILES: Record<BgmTrack, string> = {
@@ -61,6 +63,11 @@ function clearFadeOut() {
   if (_fadeOutTimer !== null) { clearInterval(_fadeOutTimer); _fadeOutTimer = null; }
 }
 
+function clearFadeIn() {
+  if (_fadeInDelay  !== null) { clearTimeout(_fadeInDelay);   _fadeInDelay  = null; }
+  if (_fadeInTimer  !== null) { clearInterval(_fadeInTimer);  _fadeInTimer  = null; }
+}
+
 function fadeOut(audio: HTMLAudioElement): void {
   clearFadeOut();
   const start = audio.volume;
@@ -77,13 +84,14 @@ function fadeOut(audio: HTMLAudioElement): void {
 }
 
 function fadeIn(audio: HTMLAudioElement, targetVol: number): void {
+  clearFadeIn();
   audio.volume = 0;
   audio.play().catch(() => {/* autoplay blocked — user hasn't interacted yet */});
   let step = 0;
-  const t = setInterval(() => {
+  _fadeInTimer = setInterval(() => {
     step++;
     audio.volume = Math.min(targetVol, targetVol * (step / FADE_STEPS));
-    if (step >= FADE_STEPS) clearInterval(t);
+    if (step >= FADE_STEPS) { clearInterval(_fadeInTimer!); _fadeInTimer = null; }
   }, FADE_MS / FADE_STEPS);
 }
 
@@ -148,12 +156,16 @@ export function setBgm(track: BgmTrack): void {
     return;
   }
 
+  // 進行中の fadeIn を必ずキャンセルしてから新しい再生を開始
+  clearFadeIn();
+
   if (_currentAudio && _currentAudio !== newAudio && isPlaying) {
     // 別の曲を再生中: クロスフェード
     const old = _currentAudio;
     _currentAudio = newAudio;
     fadeOut(old);
-    setTimeout(() => {
+    _fadeInDelay = setTimeout(() => {
+      _fadeInDelay = null;
       newAudio.currentTime = 0;
       fadeIn(newAudio, targetBgmVol());
     }, FADE_MS / 2);
@@ -165,6 +177,7 @@ export function setBgm(track: BgmTrack): void {
 }
 
 export function stopBgm(): void {
+  clearFadeIn();
   if (_currentAudio && !_currentAudio.paused) fadeOut(_currentAudio);
   _currentTrackId = null;
   _currentAudio   = null;
@@ -179,6 +192,7 @@ export function setBgmVolume(vol: number): void {
 export function setBgmEnabled(val: boolean): void {
   _bgmEnabled = val;
   lsSet(LS_BGM_ENABLED, String(val));
+  if (!val || _allMuted) clearFadeIn();
   if (!_currentAudio) return;
   if (val && !_allMuted) {
     _currentAudio.volume = _bgmVol;

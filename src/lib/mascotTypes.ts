@@ -59,7 +59,9 @@ export interface MascotState {
   expression: MascotExpression;
   reaction: MascotReaction;
   speech?: string;
-  speechVisibleUntil?: number; // Unix timestamp (ms)
+  speechVisibleUntil?: number; // Unix timestamp (ms) — deprecated, use expiresAt
+  expiresAt?: number;          // Unix timestamp (ms): この時刻を過ぎたら idle/normal に戻る
+  eventId?: number;            // 重複発火防止用ランダム ID
 }
 
 export interface ReactionConfig {

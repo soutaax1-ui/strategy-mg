@@ -311,6 +311,8 @@ export function DashboardScreen() {
           expression={ui.mascot?.expression ?? 'normal'}
           reaction={ui.mascot?.reaction ?? 'idle'}
           speech={ui.mascot?.speech}
+          expiresAt={ui.mascot?.expiresAt}
+          eventId={ui.mascot?.eventId}
           className="bottom-[72px] right-[316px]"
         />
       )}

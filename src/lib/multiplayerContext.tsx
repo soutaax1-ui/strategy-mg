@@ -17,9 +17,14 @@ import type { GameAction, UiState, GameState } from './types';
 
 /* ── 型 ── */
 export interface PlayerAssignment {
-  socketId: string;
+  socketId:   string;
   playerName: string;
   companyIdx: number;
+  charaData?: {
+    companyName:   string;
+    presidentName: string;
+    characterId:   string;
+  };
 }
 
 interface StartedPayload {
@@ -106,10 +111,18 @@ export function MultiplayerBridge() {
   const navigate  = useNavigate();
   const location  = useLocation();
   const { gs, ui, dispatch } = useGame();
-  const { isMultiplayer, isHost, _setSession } = useContext(MultiplayerContext);
+  const { isMultiplayer, isHost, assignments, _setSession } = useContext(MultiplayerContext);
 
   /* ホスト: 前回 gs と比較してブロードキャスト */
   const prevGsRef = useRef<GameState | null>(null);
+
+  /* Stale-closure 回避: 最新の gs / isHost / assignments を ref で追跡 */
+  const currentGsRef    = useRef<GameState | null>(null);
+  const isHostRef       = useRef(isHost);
+  const assignmentsRef  = useRef(assignments);
+  currentGsRef.current   = gs;
+  isHostRef.current      = isHost;
+  assignmentsRef.current = assignments;
 
   /* ── ソケットイベント登録 ── */
   useEffect(() => {
@@ -166,9 +179,15 @@ export function MultiplayerBridge() {
       if (iAmHost) {
         const config = DIFF[payload.difficulty];
         // 全人間プレイヤーの会社を 'player' 型・プレイヤー名にオーバーライド
-        // (ホスト idx=0 を含む。AI 席は initGame のデフォルト 'ai' 型のまま)
-        const mpOverrides = payload.assignments
-          .map(a => ({ idx: a.companyIdx, name: a.playerName, type: 'player' as const }));
+        // charaData がある場合は companyName/presidentName/characterId も注入
+        const mpOverrides = payload.assignments.map(a => ({
+          idx:           a.companyIdx,
+          name:          a.playerName,
+          type:          'player' as const,
+          companyName:   a.charaData?.companyName,
+          presidentName: a.charaData?.presidentName,
+          characterId:   a.charaData?.characterId as import('./mascotTypes').MascotId | undefined,
+        }));
         dispatch({
           type: 'INIT_GAME',
           totalPeriods: payload.totalPeriods,
@@ -214,8 +233,29 @@ export function MultiplayerBridge() {
     socket.on('player_action', (actionJson: string) => {
       try {
         const action = JSON.parse(actionJson) as GameAction & { _senderCompanyIdx?: unknown };
+        const senderIdx = action._senderCompanyIdx;
         // サーバーが注入した _senderCompanyIdx がない場合は不正パケットとして棄却
-        if (typeof action._senderCompanyIdx !== 'number') return;
+        if (typeof senderIdx !== 'number') return;
+
+        const currentGs = currentGsRef.current;
+        if (currentGs) {
+          const senderCompany = currentGs.companies[senderIdx];
+          if (!senderCompany) return;
+
+          // ターンベースのアクション: 送信者の手番か検証
+          const TURN_ACTIONS = new Set<string>([
+            'DRAW_MAIN_CARD', 'EXECUTE_ACTION', 'APPLY_RISK_CARD',
+          ]);
+          if (TURN_ACTIONS.has(action.type as string)) {
+            if (currentGs.playerIdx !== senderIdx) return;
+          }
+
+          // action.company が存在する場合、gs の正規データで上書き (偽装防止)
+          if ('company' in action && (action as Record<string, unknown>).company !== undefined) {
+            (action as Record<string, unknown>).company = senderCompany;
+          }
+        }
+
         dispatch(action);
       } catch (e) {
         console.warn('[mp] player_action parse error', e);
@@ -229,12 +269,25 @@ export function MultiplayerBridge() {
       navigate('/');
     });
 
+    /* 非ホストプレイヤー切断: 30秒猶予後に発火 */
+    socket.on('player_disconnected', ({ socketId }: { socketId: string }) => {
+      const assignment = assignmentsRef.current.find(a => a.socketId === socketId);
+      if (!assignment) return;
+      // 全クライアント: マスコット playerLeave
+      dispatch({ type: 'TRIGGER_MASCOT_EVENT', event: 'playerLeave' });
+      // ホストのみ: 当該会社を AI に変換して進行継続
+      if (isHostRef.current) {
+        dispatch({ type: 'PLAYER_DISCONNECTED', companyIdx: assignment.companyIdx });
+      }
+    });
+
     return () => {
       socket.off('connect', handleConnect);
       socket.off('game_started');
       socket.off('game_state');
       socket.off('player_action');
       socket.off('host_disconnected');
+      socket.off('player_disconnected');
     };
   }, [_setSession, dispatch, navigate, location.pathname]);
 

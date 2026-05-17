@@ -251,6 +251,8 @@ export type GameAction =
   | { type: 'AI_TAKE_TURN'; company: Company }
   | { type: 'SET_STATE'; gs: GameState; ui: UiState }
   | { type: 'TRIGGER_MASCOT_EVENT'; event: import('./mascotTypes').MascotEvent }
+  | { type: 'PLAYER_DISCONNECTED'; companyIdx: number }
+  | { type: 'RESET_MASCOT' }
   | { type: 'RESET_GAME' };
 
 /* === 画面フェーズ === */

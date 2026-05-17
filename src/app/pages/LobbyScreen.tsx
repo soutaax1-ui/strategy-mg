@@ -61,7 +61,9 @@ export function LobbyScreen() {
   const handleCreate = useCallback(() => {
     setError('');
     if (!playerName.trim()) { setError('プレイヤー名を入力してください'); return; }
-    getSocket().emit('create_room', playerName.trim(), (res: RoomRes) => {
+    const charaRaw  = sessionStorage.getItem('mp_chara');
+    const charaData = charaRaw ? (() => { try { return JSON.parse(charaRaw); } catch { return undefined; } })() : undefined;
+    getSocket().emit('create_room', { playerName: playerName.trim(), charaData }, (res: RoomRes) => {
       if (!res.ok) { setError(res.error); return; }
       setRoom(res.room);
       setMyCode(res.code);
@@ -74,7 +76,9 @@ export function LobbyScreen() {
     setError('');
     if (!playerName.trim()) { setError('プレイヤー名を入力してください'); return; }
     if (!joinCode.trim())   { setError('ルームコードを入力してください'); return; }
-    getSocket().emit('join_room', joinCode.trim().toUpperCase(), playerName.trim(), (res: RoomRes) => {
+    const charaRaw  = sessionStorage.getItem('mp_chara');
+    const charaData = charaRaw ? (() => { try { return JSON.parse(charaRaw); } catch { return undefined; } })() : undefined;
+    getSocket().emit('join_room', { code: joinCode.trim().toUpperCase(), playerName: playerName.trim(), charaData }, (res: RoomRes) => {
       if (!res.ok) { setError(res.error); return; }
       setRoom(res.room);
       setMyCode(res.code);

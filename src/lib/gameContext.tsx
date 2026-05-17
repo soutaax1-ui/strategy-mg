@@ -649,6 +649,24 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
       return { ...state, ui: { ...ui, mascot } };
     }
 
+    /* ---- プレイヤー切断: 当該会社を AI に変換 ---- */
+    case 'PLAYER_DISCONNECTED': {
+      if (!gs) return state;
+      const target = gs.companies[action.companyIdx];
+      if (!target || target.type !== 'player') return state;
+      const updated = { ...target, type: 'ai' as const };
+      const newGs = { ...gs, companies: gs.companies.map((c, i) => i === action.companyIdx ? updated : c) };
+      const charId = gs.companies[0]?.characterId ?? 'mecha';
+      const mascot = buildMascotReaction('playerLeave', charId, ui.mascot);
+      return { ...state, gs: newGs, ui: { ...ui, mascot } };
+    }
+
+    /* ---- マスコット idle リセット ---- */
+    case 'RESET_MASCOT': {
+      if (!ui.mascot) return state;
+      return { ...state, ui: { ...ui, mascot: { characterId: ui.mascot.characterId, expression: 'normal', reaction: 'idle' } } };
+    }
+
     /* ---- ゲームリセット (ホスト切断時など) ---- */
     case 'RESET_GAME':
       return initialState;

@@ -7,6 +7,7 @@ import {
   getRoom,
   roomCount,
   type Room,
+  type CharaData,
 } from './room.js';
 import {
   createSession,
@@ -26,6 +27,8 @@ const DIFFICULTIES = new Set(['easy', 'normal', 'hard']);
 const BLOCKED_ACTION_TYPES = new Set([
   'INIT_GAME', 'SET_STATE', 'AI_TAKE_TURN', 'AI_COUNTER_DECIDED',
   'ADVANCE_PERIOD', 'RESOLVE_AUCTION', 'END_PERIOD',
+  'ADVANCE_TURN', 'RESET_GAME', 'ADD_LOG', 'RECORD_TXN', 'SET_PHASE',
+  'PLAYER_DISCONNECTED', 'RESET_MASCOT',
 ]);
 
 function handleLeave(io: Server, socket: Socket): void {
@@ -44,10 +47,12 @@ export function setupSocket(io: Server): void {
     /* ── ルーム作成 ── */
     socket.on(
       'create_room',
-      (playerName: string, cb: Callback<{ ok: true; code: string; room: Room } | ErrRes>) => {
+      (payload: { playerName: string; charaData?: CharaData } | string, cb: Callback<{ ok: true; code: string; room: Room } | ErrRes>) => {
+        const playerName = typeof payload === 'string' ? payload : payload.playerName;
+        const charaData  = typeof payload === 'string' ? undefined : payload.charaData;
         if (!playerName?.trim()) { cb({ ok: false, error: 'プレイヤー名を入力してください' }); return; }
         handleLeave(io, socket);
-        const room = createRoom(playerName.trim(), socket.id);
+        const room = createRoom(playerName.trim(), socket.id, charaData);
         socket.join(room.code);
         console.log(`[create] ${socket.id} (${playerName}) → ${room.code}`);
         cb({ ok: true, code: room.code, room });
@@ -57,14 +62,21 @@ export function setupSocket(io: Server): void {
     /* ── ルーム参加 ── */
     socket.on(
       'join_room',
-      (code: string, playerName: string, cb: Callback<{ ok: true; code: string; room: Room } | ErrRes>) => {
-        if (!playerName?.trim()) { cb({ ok: false, error: 'プレイヤー名を入力してください' }); return; }
-        if (!code?.trim())       { cb({ ok: false, error: 'ルームコードを入力してください' }); return; }
+      (payload: { code: string; playerName: string; charaData?: CharaData } | string, playerNameOrCb: string | Callback<{ ok: true; code: string; room: Room } | ErrRes>, cb?: Callback<{ ok: true; code: string; room: Room } | ErrRes>) => {
+        // 旧形式 (code, playerName, cb) と新形式 (payload, cb) の両方に対応
+        let code: string, playerName: string, charaData: CharaData | undefined, callback: Callback<{ ok: true; code: string; room: Room } | ErrRes>;
+        if (typeof payload === 'string') {
+          code = payload; playerName = playerNameOrCb as string; charaData = undefined; callback = cb!;
+        } else {
+          code = payload.code; playerName = payload.playerName; charaData = payload.charaData; callback = playerNameOrCb as Callback<{ ok: true; code: string; room: Room } | ErrRes>;
+        }
+        if (!playerName?.trim()) { callback({ ok: false, error: 'プレイヤー名を入力してください' }); return; }
+        if (!code?.trim())       { callback({ ok: false, error: 'ルームコードを入力してください' }); return; }
         // 旧ルームを先に記録 (joinRoom が内部で leaveRoom を呼ぶため事前保存が必要)
         const oldRoomInfo = getRoomBySocketId(socket.id);
         // バリデーション後に joinRoom (内部で旧ルームから自動退出)
-        const result = joinRoom(code.trim(), playerName.trim(), socket.id);
-        if ('error' in result) { cb({ ok: false, error: result.error }); return; }
+        const result = joinRoom(code.trim(), playerName.trim(), socket.id, charaData);
+        if ('error' in result) { callback({ ok: false, error: result.error }); return; }
         // 旧 Socket.io ルームを退出し残留メンバーに通知
         if (oldRoomInfo) {
           socket.leave(oldRoomInfo.code);
@@ -75,7 +87,7 @@ export function setupSocket(io: Server): void {
         socket.join(result.room.code);
         io.to(result.room.code).emit('room_update', result.room);
         console.log(`[join] ${socket.id} (${playerName}) → ${result.room.code}  (${result.room.players.length}/${result.room.maxPlayers})`);
-        cb({ ok: true, code: result.room.code, room: result.room });
+        callback({ ok: true, code: result.room.code, room: result.room });
       },
     );
 
@@ -131,9 +143,10 @@ export function setupSocket(io: Server): void {
 
         // 参加順にプレイヤーを会社に割り当て
         const assignments: PlayerAssignment[] = roomInfo.room.players.map((p, i) => ({
-          socketId: p.id,
+          socketId:   p.id,
           playerName: p.name,
           companyIdx: i,
+          charaData:  p.charaData,
         }));
 
 	        createSession(

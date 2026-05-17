@@ -267,7 +267,9 @@ export function buildMascotReaction(
   const expression: MascotExpression = incomingPriority >= currentPriority ? cfg.expression : (current?.expression ?? 'normal');
   const reaction:   MascotReaction   = incomingPriority >= currentPriority ? cfg.reaction   : (current?.reaction   ?? 'idle');
 
-  const speech = cfg.showSpeech ? pickSpeech(characterId, event) : undefined;
+  const speech    = cfg.showSpeech ? pickSpeech(characterId, event) : undefined;
+  const expiresAt = Date.now() + cfg.duration;
+  const eventId   = Math.floor(Math.random() * 1e9);
 
-  return { characterId, expression, reaction, speech };
+  return { characterId, expression, reaction, speech, expiresAt, eventId };
 }
