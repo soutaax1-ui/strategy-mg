@@ -27,6 +27,7 @@ interface StartedPayload {
   totalPeriods: number;
   difficulty: 'easy' | 'normal' | 'hard';
   roomCode: string;
+  hostSocketId: string;
   fillWithAi: boolean;
 }
 
@@ -39,7 +40,7 @@ interface MultiplayerSession {
 }
 
 interface MultiplayerContextValue extends MultiplayerSession {
-  startGame: (totalPeriods: number, difficulty: 'easy' | 'normal' | 'hard', fillWithAi: boolean) => void;
+  startGame: (totalPeriods: number, difficulty: 'easy' | 'normal' | 'hard', fillWithAi: boolean, onError?: (error: string) => void) => void;
   /* Bridge が state を更新するための setter (screens からは使わない) */
   _setSession: Dispatch<SetStateAction<MultiplayerSession>>;
 }
@@ -63,8 +64,19 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<MultiplayerSession>(defaultSession);
 
   const startGame = useCallback(
-    (totalPeriods: number, difficulty: 'easy' | 'normal' | 'hard', fillWithAi: boolean) => {
-      getSocket().emit('start_game', { totalPeriods, difficulty, fillWithAi }, () => {});
+    (
+      totalPeriods: number,
+      difficulty: 'easy' | 'normal' | 'hard',
+      fillWithAi: boolean,
+      onError?: (error: string) => void,
+    ) => {
+      getSocket().emit(
+        'start_game',
+        { totalPeriods, difficulty, fillWithAi },
+        (res: { ok: true } | { ok: false; error: string }) => {
+          if (!res.ok) onError?.(res.error);
+        },
+      );
     },
     [],
   );
@@ -107,7 +119,7 @@ export function MultiplayerBridge() {
     socket.on('game_started', (payload: StartedPayload) => {
       const myId     = socket.id!;
       const myAssign = payload.assignments.find(a => a.socketId === myId);
-      const iAmHost  = myAssign?.companyIdx === 0;
+      const iAmHost  = myId === payload.hostSocketId;
 
       _setSession({
         isMultiplayer: true,
@@ -141,9 +153,9 @@ export function MultiplayerBridge() {
                   gs: GameState; ui: UiState;
                 };
                 dispatch({ type: 'SET_STATE', gs: syncGs, ui: syncUi });
+                navigate('/dashboard');
               } catch {}
             }
-            navigate('/dashboard');
           },
         );
       }
@@ -156,6 +168,9 @@ export function MultiplayerBridge() {
           gs: GameState; ui: UiState;
         };
         dispatch({ type: 'SET_STATE', gs: syncGs, ui: syncUi });
+        if (location.pathname === '/lobby' || location.pathname === '/') {
+          navigate('/dashboard');
+        }
       } catch (e) {
         console.warn('[mp] game_state parse error', e);
       }
@@ -183,9 +198,7 @@ export function MultiplayerBridge() {
       socket.off('player_action');
       socket.off('host_disconnected');
     };
-  // dispatch/navigate は安定した参照なので deps に含める必要なし
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [_setSession]);
+  }, [_setSession, dispatch, navigate, location.pathname]);
 
   /* ── ホスト: gs/ui 変化をブロードキャスト ── */
   useEffect(() => {

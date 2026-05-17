@@ -50,7 +50,7 @@ export function BiddingScreen() {
     if (!auction || auction.resolved) return;
     const child = auction.children[auction.childIdx];
     if (child?.type !== 'player') return;
-    const player = gs!.companies[0];
+    const player = gs!.companies.find(c => c.id === child.id) ?? gs!.companies[0];
     const city   = CITIES.find(c => c.id === auction.cityId) ?? CITIES[0];
     setCounterQty(Math.min(player.productInventory, Math.max(1, auction.parentQty)));
     setCounterPrice(Math.max(MATERIAL_COST + 1, Math.min(city.priceMax, auction.parentPrice - 1)));
@@ -119,13 +119,13 @@ export function BiddingScreen() {
   function handleSubmitCounter() {
     if (counterQty <= 0 || counterQty > player.productInventory) return;
     playSfx('confirm');
-    mpDispatch({ type: 'PLAYER_SUBMIT_COUNTER', qty: counterQty, price: counterPrice });
+    mpDispatch({ type: 'PLAYER_SUBMIT_COUNTER', qty: counterQty, price: counterPrice, company: player });
     setShowForm(false);
   }
 
   function handlePass() {
     playSfx('pass');
-    mpDispatch({ type: 'PLAYER_PASS_AUCTION' });
+    mpDispatch({ type: 'PLAYER_PASS_AUCTION', company: player });
     setShowForm(false);
   }
 
@@ -299,7 +299,9 @@ export function BiddingScreen() {
               variant="primary"
               size="sm"
               onClick={() => {
-                dispatch({ type: 'ADVANCE_TURN' });
+                if (!isMultiplayer || isHost) {
+                  dispatch({ type: 'ADVANCE_TURN' });
+                }
                 navigate('/dashboard');
               }}
               className="shadow-[4px_4px_0px_#000]"

@@ -70,7 +70,10 @@ export function leaveRoom(socketId: string): { code: string; room: Room } | null
   const code = socketToRoom.get(socketId);
   if (!code) return null;
   const room = rooms.get(code);
-  if (!room) return null;
+  if (!room) {
+    socketToRoom.delete(socketId);
+    return null;
+  }
 
   socketToRoom.delete(socketId);
   room.players = room.players.filter(p => p.id !== socketId);

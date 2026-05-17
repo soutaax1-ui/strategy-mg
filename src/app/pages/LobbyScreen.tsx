@@ -5,7 +5,6 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import {
   connectSocket,
-  disconnectSocket,
   getSocket,
   type Room,
   type RoomRes,
@@ -51,7 +50,6 @@ export function LobbyScreen() {
       socket.off('connect');
       socket.off('disconnect');
       socket.off('room_update');
-      disconnectSocket();
     };
   }, []);
 
@@ -99,7 +97,8 @@ export function LobbyScreen() {
 
   /* ── ゲーム開始 ── */
   const handleStartGame = useCallback(() => {
-    startGame(totalPeriods, difficulty, fillWithAi);
+    setError('');
+    startGame(totalPeriods, difficulty, fillWithAi, setError);
   }, [startGame, totalPeriods, difficulty, fillWithAi]);
 
   const isHost = room ? getSocket().id === room.hostId : false;

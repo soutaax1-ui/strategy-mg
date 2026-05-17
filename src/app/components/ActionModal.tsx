@@ -3,20 +3,24 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './Button';
 import { ACTION_DEFS, CITIES, FLYER_ADV, RD_ADV } from '../../lib/constants';
 import { useGame, usePlayer } from '../../lib/gameContext';
+import { useMpDispatch } from '../../lib/multiplayerContext';
 import { getActionAvailability } from '../../lib/actions';
 import { prodCap, effectiveMatCost, rdNextCost } from '../../lib/gameState';
-import type { ActionId, CityId } from '../../lib/types';
+import type { ActionId, CityId, Company } from '../../lib/types';
 
 type View = 'menu' | 'params';
 
 interface Props {
   onClose: () => void;
   onActionDone: () => void;
+  company?: Company;
 }
 
-export function ActionModal({ onClose, onActionDone }: Props) {
-  const { gs, dispatch } = useGame();
-  const player = usePlayer();
+export function ActionModal({ onClose, onActionDone, company }: Props) {
+  const { gs } = useGame();
+  const mpDispatch = useMpDispatch();
+  const fallbackPlayer = usePlayer();
+  const player = company ?? fallbackPlayer;
   const [view, setView]       = useState<View>('menu');
   const [selected, setSelected] = useState<ActionId | null>(null);
 
@@ -27,7 +31,7 @@ export function ActionModal({ onClose, onActionDone }: Props) {
   function handleSelectAction(id: ActionId) {
     if (id === 'produce' || id === 'nothing') {
       // these need no params — execute immediately
-      dispatch({ type: 'EXECUTE_ACTION', actionId: id, params: {} });
+      mpDispatch({ type: 'EXECUTE_ACTION', actionId: id, params: {}, company: player });
       onActionDone();
       return;
     }
@@ -113,7 +117,7 @@ export function ActionModal({ onClose, onActionDone }: Props) {
                   gs={gs}
                   player={player}
                   onConfirm={(params) => {
-                    dispatch({ type: 'EXECUTE_ACTION', actionId: selected!, params });
+                    mpDispatch({ type: 'EXECUTE_ACTION', actionId: selected!, params, company: player });
                     onActionDone();
                   }}
                   onCancel={() => setView('menu')}
@@ -130,7 +134,7 @@ export function ActionModal({ onClose, onActionDone }: Props) {
 /* ======================================================
    ParamView — action-specific parameter input UI
    ====================================================== */
-import type { GameState, Company, ActionParams } from '../../lib/types';
+import type { GameState, ActionParams } from '../../lib/types';
 
 function ParamView({
   actionId, gs, player, onConfirm, onCancel,

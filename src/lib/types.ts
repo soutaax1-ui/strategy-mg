@@ -225,13 +225,13 @@ export interface GameState {
 /* === Context のアクション型 === */
 export type GameAction =
   | { type: 'INIT_GAME'; totalPeriods: number; config: GameConfig; mpOverrides?: { idx: number; name: string; type: CompanyType }[] }
-  | { type: 'PERIOD_START_FINANCE'; borrow: number; repay: number }
+  | { type: 'PERIOD_START_FINANCE'; borrow: number; repay: number; company?: Company }
   | { type: 'DRAW_MAIN_CARD' }
   | { type: 'START_PLAYER_ACTION_MENU' }
   | { type: 'EXECUTE_ACTION'; actionId: ActionId; params: ActionParams; company?: Company }
   | { type: 'START_AUCTION'; auction: AuctionState }
-  | { type: 'PLAYER_PASS_AUCTION' }
-  | { type: 'PLAYER_SUBMIT_COUNTER'; qty: number; price: number }
+  | { type: 'PLAYER_PASS_AUCTION'; company?: Company }
+  | { type: 'PLAYER_SUBMIT_COUNTER'; qty: number; price: number; company?: Company }
   | { type: 'AI_COUNTER_DECIDED'; counter: AuctionCounter | null }
   | { type: 'RESOLVE_AUCTION' }
   | { type: 'END_PERIOD' }

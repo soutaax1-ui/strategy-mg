@@ -25,7 +25,7 @@ const TEXT_COLOR: Record<string, string> = {
 export function DashboardScreen() {
   const navigate  = useNavigate();
   const { gs, ui, dispatch } = useGame();
-  const player = usePlayer();
+  const fallbackPlayer = usePlayer();
   const mpDispatch = useMpDispatch();
   const { isMultiplayer, isHost, myCompanyIdx, assignments } = useMultiplayer();
 
@@ -50,11 +50,12 @@ export function DashboardScreen() {
     if (ui.phase === 'auction' && (!isMultiplayer || isHost)) navigate('/bidding');
   }, [ui.phase, navigate, isMultiplayer, isHost]);
 
+  // マルチ: 自分の会社番号のターンが「プレイヤーターン」
+  const effectiveMyIdx = isMultiplayer ? myCompanyIdx : 0;
+  const player = gs?.companies[effectiveMyIdx] ?? fallbackPlayer;
   if (!gs || !player) return null;
 
   const currentCompany = gs.companies[gs.playerIdx];
-  // マルチ: 自分の会社番号のターンが「プレイヤーターン」
-  const effectiveMyIdx = isMultiplayer ? myCompanyIdx : 0;
   const isMyTurn       = gs.playerIdx === effectiveMyIdx;
   // マルチ: 現在のターンが人間プレイヤーのものかどうか
   const currentIsHuman = isMultiplayer
@@ -75,7 +76,7 @@ export function DashboardScreen() {
   }
 
   function handleEndPeriod() {
-    dispatch({ type: 'END_PERIOD' });
+    mpDispatch({ type: 'END_PERIOD' });
     navigate('/accounting');
   }
 
@@ -128,8 +129,8 @@ export function DashboardScreen() {
         <div className="flex-1 flex flex-col items-center justify-center bg-[#131122] relative">
 
           {/* Phase: period-start */}
-          {ui.phase === 'period-start' && (
-            <PeriodStartView gs={gs} player={player} dispatch={dispatch} />
+          {ui.phase === 'period-start' && isMyTurn && (
+            <PeriodStartView gs={gs} player={player} dispatch={mpDispatch} />
           )}
 
           {/* Phase: period-done */}
@@ -137,7 +138,7 @@ export function DashboardScreen() {
             <div className="text-center">
               <div className="font-dot text-2xl text-mg-gold mb-6">第{gs.currentPeriod}期 終了</div>
               <div className="font-noto text-mg-text-secondary mb-8">全10ラウンドが完了しました。期末決算に進みます。</div>
-              <Button variant="primary" size="lg" onClick={handleEndPeriod} className="shadow-[6px_6px_0px_#000]">
+            <Button variant="primary" size="lg" onClick={handleEndPeriod} className="shadow-[6px_6px_0px_#000]">
                 期末決算へ進む <ChevronRight className="ml-2" />
               </Button>
             </div>
@@ -215,20 +216,20 @@ export function DashboardScreen() {
           )}
 
           {/* Phase: risk-trigger */}
-            {ui.phase === 'risk-trigger' && (
+            {ui.phase === 'risk-trigger' && isMyTurn && (
               <RiskTriggerView onDraw={() => {
                 playSfx('risk');
                 const { card, deck } = drawFromRiskDeck(gs.riskDeck);
                 const target = ui.riskTarget ?? player;
-                dispatch({ type: 'APPLY_RISK_CARD', company: target, card, remainingRiskDeck: deck });
+                mpDispatch({ type: 'APPLY_RISK_CARD', company: target, card, remainingRiskDeck: deck });
               }} />
             )}
 
           {/* Phase: risk-result */}
-          {ui.phase === 'risk-result' && ui.drawnRiskCard && (
+          {ui.phase === 'risk-result' && ui.drawnRiskCard && isMyTurn && (
             <RiskResultView
               card={ui.drawnRiskCard}
-              onContinue={() => dispatch({ type: 'ADVANCE_TURN' })}
+              onContinue={() => mpDispatch({ type: 'ADVANCE_TURN' })}
             />
           )}
 
@@ -279,7 +280,7 @@ export function DashboardScreen() {
 
       {/* Action Modal */}
       {modalOpen && (
-        <ActionModal onClose={() => setModalOpen(false)} onActionDone={handleActionDone} />
+        <ActionModal onClose={() => setModalOpen(false)} onActionDone={handleActionDone} company={player} />
       )}
     </div>
   );
@@ -333,7 +334,7 @@ function PeriodStartView({ gs, player, dispatch }: { gs: GameState; player: Comp
 
       <Button
         variant="primary" size="lg"
-        onClick={() => dispatch({ type: 'PERIOD_START_FINANCE', borrow, repay })}
+        onClick={() => dispatch({ type: 'PERIOD_START_FINANCE', borrow, repay, company: player })}
         className="shadow-[6px_6px_0px_#000]"
       >
         期を開始する <ChevronRight className="ml-2" />

@@ -43,7 +43,8 @@ function advanceTurn(
   if (round > 10) {
     return { gs: { ...cleanGs, playerIdx, round }, ui: { ...ui, phase: 'period-done' } };
   }
-  const nextPhase: GamePhase = playerIdx === 0 ? 'draw-ready' : 'ai-thinking';
+  const nextCompany = cleanGs.companies[playerIdx];
+  const nextPhase: GamePhase = nextCompany?.type === 'player' ? 'draw-ready' : 'ai-thinking';
   return { gs: { ...cleanGs, playerIdx, round }, ui: { ...ui, phase: nextPhase, drawnCard: null } };
 }
 
@@ -190,9 +191,12 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
       return { gs: action.gs, ui: action.ui };
 
     /* ---- 期首借入/返済 ---- */
-      case 'PERIOD_START_FINANCE': {
+    case 'PERIOD_START_FINANCE': {
       if (!gs) return state;
-      const player = { ...gs.companies[0] };
+      const target = action.company
+        ? gs.companies.find(c => c.id === action.company?.id) ?? action.company
+        : gs.companies[0];
+      const player = { ...target };
 
       const borrow = Number.isFinite(action.borrow) ? Math.max(0, action.borrow) : 0;
       player.cash += borrow;
@@ -204,9 +208,9 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
       player.debt -= actualRepay;
 
       // AI各社の期首財務
-      const companies = gs.companies.map((c, i) => {
-        if (i === 0) return player;
-        return aiPeriodStartFinance(c);
+      const companies = gs.companies.map(c => {
+        if (c.id === player.id) return player;
+        return c.type === 'ai' ? aiPeriodStartFinance(c) : c;
       });
 
       return {
@@ -226,7 +230,7 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
         return {
           ...state,
           gs: newGs,
-          ui: { ...ui, phase: 'risk-trigger', drawnCard: card, riskTarget: gs.companies[0] },
+          ui: { ...ui, phase: 'risk-trigger', drawnCard: card, riskTarget: gs.companies[gs.playerIdx] },
         };
       }
       return {
@@ -362,15 +366,20 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
     /* ---- プレイヤー: オークションパス ---- */
     case 'PLAYER_PASS_AUCTION': {
       if (!gs || !gs.currentAuction) return state;
-      let newGs = addLog(gs, 'あなたはパス', 'log-player');
+      const company = action.company
+        ? gs.companies.find(c => c.id === action.company?.id) ?? action.company
+        : gs.companies[0];
+      let newGs = addLog(gs, `${company.name} はパス`, company.id === 'player' ? 'log-player' : '');
       newGs = { ...newGs, currentAuction: { ...newGs.currentAuction!, childIdx: newGs.currentAuction!.childIdx + 1 } };
       return { ...state, gs: newGs };
     }
 
     /* ---- プレイヤー: 対抗入札 ---- */
-      case 'PLAYER_SUBMIT_COUNTER': {
+    case 'PLAYER_SUBMIT_COUNTER': {
       if (!gs || !gs.currentAuction) return state;
-      const player     = gs.companies[0];
+      const player     = action.company
+        ? gs.companies.find(c => c.id === action.company?.id) ?? action.company
+        : gs.companies[0];
       const city       = CITIES.find(c => c.id === gs.currentAuction!.cityId) ?? CITIES[0];
       const qty        = Math.max(0, Math.min(action.qty, player.productInventory, gs.currentAuction.cityVol));
       const price      = Math.max(city.priceMin, Math.min(city.priceMax, action.price));
@@ -395,7 +404,7 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
       };
       let newGs = updateCompany(gs, updatedPlayer);
       newGs = { ...newGs, currentAuction: newAuction };
-      newGs = addLog(newGs, `あなたが対抗入札！${qty}個 @${price}万 (実効${effPrice}万)`, 'log-player');
+      newGs = addLog(newGs, `${player.name} が対抗入札！${qty}個 @${price}万 (実効${effPrice}万)`, player.id === 'player' ? 'log-player' : '');
       return { ...state, gs: newGs };
     }
 

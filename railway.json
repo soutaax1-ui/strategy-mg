@@ -1,7 +1,10 @@
 {
   "$schema": "https://railway.app/railway-schema.json",
+  "build": {
+    "buildCommand": "npm install --include=dev && npm run build"
+  },
   "deploy": {
-    "startCommand": "node --experimental-strip-types server/index.ts",
+    "startCommand": "npm start",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 60,
     "restartPolicyType": "ON_FAILURE",

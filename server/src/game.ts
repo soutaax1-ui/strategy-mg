@@ -45,6 +45,16 @@ export function getSessionBySocket(socketId: string): GameSession | undefined {
   return undefined;
 }
 
+export function removeSocketFromSession(socketId: string): GameSession | undefined {
+  const session = getSessionBySocket(socketId);
+  if (!session) return undefined;
+  session.assignments = session.assignments.filter(a => a.socketId !== socketId);
+  if (session.assignments.length === 0) {
+    sessions.delete(session.roomCode);
+  }
+  return session;
+}
+
 export function updateSessionState(roomCode: string, stateJson: string): void {
   const s = sessions.get(roomCode);
   if (s) s.latestStateJson = stateJson;

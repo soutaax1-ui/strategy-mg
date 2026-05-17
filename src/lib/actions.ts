@@ -44,7 +44,9 @@ export function executeAction(
   targetCompany?: Company,
 ): GameState {
   let gs  = { ...gsIn };
-  const orig = targetCompany ?? gs.companies[0];
+  const orig = targetCompany
+    ? gs.companies.find(company => company.id === targetCompany.id) ?? targetCompany
+    : gs.companies[0];
   const c  = { ...orig };
   const isPlayer = c.id === 'player';
 
