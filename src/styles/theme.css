@@ -1,0 +1,60 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #0f0e1a;
+  --foreground: #f1f0ff;
+  --surface: #1a1830;
+  --elevated: #2a2747;
+  --border-color: #3d3a5e;
+  
+  --gold: #ffba08;
+  --cyan: #00d9ff;
+  --pink: #ff4d8d;
+  --lime: #80ed99;
+  
+  --text-primary: #f1f0ff;
+  --text-secondary: #a8a3c7;
+  --success: #06d6a0;
+  --danger: #ff3366;
+  
+  --font-press-start: "Press Start 2P", monospace;
+  --font-dot-gothic: "DotGothic16", sans-serif;
+  --font-noto-sans: "Noto Sans JP", sans-serif;
+  --font-jetbrains: "JetBrains Mono", monospace;
+}
+
+@theme inline {
+  --color-mg-base: var(--background);
+  --color-mg-surface: var(--surface);
+  --color-mg-elevated: var(--elevated);
+  --color-mg-border: var(--border-color);
+  
+  --color-mg-gold: var(--gold);
+  --color-mg-cyan: var(--cyan);
+  --color-mg-pink: var(--pink);
+  --color-mg-lime: var(--lime);
+  
+  --color-mg-text-primary: var(--text-primary);
+  --color-mg-text-secondary: var(--text-secondary);
+  --color-mg-success: var(--success);
+  --color-mg-danger: var(--danger);
+
+  --font-press: var(--font-press-start);
+  --font-dot: var(--font-dot-gothic);
+  --font-noto: var(--font-noto-sans);
+  --font-mono: var(--font-jetbrains);
+}
+
+@layer base {
+  * {
+    @apply border-mg-border outline-mg-cyan/50;
+  }
+
+  body {
+    @apply bg-mg-base text-mg-text-primary font-noto;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-dot;
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(node_modules/.bin/tsc *)",
+      "Bash(./node_modules/.bin/tsc *)",
+      "Bash(node_modules/.bin/vite build *)",
+      "Bash(node_modules/.bin/vite --port 5173)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/)",
+      "Bash(npm install *)",
+      "Bash(node *)",
+      "Bash(open *)",
+      "Bash(node_modules/.bin/tsx index.ts)",
+      "Bash(curl -s http://localhost:3001/health)",
+      "Bash(pkill -f \"tsx index.ts\")",
+      "Bash(npm run *)"
+    ]
+  }
+}
