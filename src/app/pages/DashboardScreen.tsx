@@ -14,6 +14,7 @@ import { drawFromRiskDeck, prodCap } from '../../lib/gameState';
 import type { Company, GameState } from '../../lib/types';
 import { setBgm, playSfx } from '../../lib/sound';
 import { useMultiplayer, useMpDispatch } from '../../lib/multiplayerContext';
+import { PresidentMascot } from '../components/PresidentMascot';
 
 const COLOR_MAP: Record<string, string> = {
   player: 'cyan', alpha: 'pink', beta: 'gold', gamma: 'lime',
@@ -281,6 +282,15 @@ export function DashboardScreen() {
       {/* Action Modal */}
       {modalOpen && (
         <ActionModal onClose={() => setModalOpen(false)} onActionDone={handleActionDone} company={player} />
+      )}
+
+      {player.characterId && (
+        <PresidentMascot
+          characterId={ui.mascot?.characterId ?? player.characterId}
+          expression={ui.mascot?.expression ?? 'normal'}
+          reaction={ui.mascot?.reaction ?? 'idle'}
+          speech={ui.mascot?.speech}
+        />
       )}
     </div>
   );

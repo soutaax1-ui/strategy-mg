@@ -5,12 +5,11 @@ import { Card } from "../components/Card";
 import { motion } from "motion/react";
 import { Play, RotateCcw, Settings, BookOpen, Users } from "lucide-react";
 import { useGame } from "../../lib/gameContext";
-import { DIFF } from "../../lib/constants";
 import { setBgm, playSfx } from "../../lib/sound";
 
 export function TitleScreen() {
   const navigate = useNavigate();
-  const { dispatch, gs } = useGame();
+  const { gs } = useGame();
   const [period, setPeriod]         = useState(10);
   const [difficulty, setDifficulty] = useState<'easy' | 'normal' | 'hard'>('normal');
 
@@ -24,9 +23,7 @@ export function TitleScreen() {
 
   function handleStart() {
     playSfx('confirm');
-    const config = DIFF[difficulty];
-    dispatch({ type: 'INIT_GAME', totalPeriods: period, config });
-    navigate('/dashboard');
+    navigate(`/character-select?mode=single&period=${period}&difficulty=${difficulty}`);
   }
 
   return (
@@ -134,7 +131,7 @@ export function TitleScreen() {
             <Button
               variant="outline"
               className="font-press text-2xl py-6 px-12 bg-mg-surface border-mg-cyan text-mg-cyan hover:bg-mg-cyan/10 shadow-[6px_6px_0px_#000000]"
-              onClick={() => navigate('/lobby')}
+              onClick={() => navigate('/character-select?mode=multi')}
             >
               <Users className="mr-3 w-6 h-6" />
               マルチプレイ

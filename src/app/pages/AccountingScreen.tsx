@@ -9,6 +9,7 @@ import { calcBS, equity, fmt } from '../../lib/gameState';
 import { DR_LABELS, CR_LABELS } from '../../lib/constants';
 import type { Company, PeriodResult } from '../../lib/types';
 import { setBgm } from '../../lib/sound';
+import { PresidentMascot } from '../components/PresidentMascot';
 
 const TEXT_COLOR: Record<string, string> = {
   player: 'text-mg-cyan', alpha: 'text-mg-pink', beta: 'text-mg-gold', gamma: 'text-mg-lime',
@@ -16,7 +17,7 @@ const TEXT_COLOR: Record<string, string> = {
 
 export function AccountingScreen() {
   const navigate          = useNavigate();
-  const { gs, dispatch }  = useGame();
+  const { gs, ui, dispatch }  = useGame();
   const [tab, setTab]     = useState<'PL' | 'BS' | 'MX' | 'COMP'>('PL');
 
   useEffect(() => { setBgm('accounting'); }, []);
@@ -84,6 +85,14 @@ export function AccountingScreen() {
           </motion.div>
         </AnimatePresence>
       </div>
+      {player.characterId && (
+        <PresidentMascot
+          characterId={ui.mascot?.characterId ?? player.characterId}
+          expression={ui.mascot?.expression ?? 'normal'}
+          reaction={ui.mascot?.reaction ?? 'idle'}
+          speech={ui.mascot?.speech}
+        />
+      )}
     </div>
   );
 }

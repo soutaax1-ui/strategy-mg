@@ -1,0 +1,156 @@
+/* ============================================================
+ * mascot.css — 戦略MG マスコットアニメーション
+ * spec: docs/mascot-spec.md §2 §3 準拠
+ * ============================================================ */
+
+/* ── 基本サイズ ── */
+.mascot-img {
+  height: 25vh;
+  max-height: 240px;
+  min-height: 120px;
+  width: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* ============================================================
+ * Idle keyframes (キャラ別)
+ * ============================================================ */
+
+@keyframes idle-mecha {
+  0%, 80%, 100% { transform: translateY(0);    filter: brightness(1);    }
+  85%           { transform: translateY(-2px); filter: brightness(1.25); }
+  90%           { transform: translateY(0);    filter: brightness(0.95); }
+}
+
+@keyframes idle-kame {
+  0%, 100% { transform: translateY(0)    scale(1);     }
+  50%      { transform: translateY(-3px) scale(1.015); }
+}
+
+@keyframes idle-fuku {
+  0%, 100% { transform: translateY(0)    rotate(0deg);  }
+  40%      { transform: translateY(-4px) rotate(-1deg); }
+  60%      { transform: translateY(-2px) rotate(1deg);  }
+}
+
+@keyframes idle-roki {
+  0%, 100% { transform: translateX(0)    rotate(0deg);  }
+  35%      { transform: translateX(-2px) rotate(-1deg); }
+  65%      { transform: translateX(2px)  rotate(1deg);  }
+}
+
+@keyframes idle-st {
+  0%, 100% { transform: translateY(0)    rotate(0deg); }
+  50%      { transform: translateY(-6px) rotate(1deg); }
+}
+
+/* ── idle クラス → アニメーション適用 ── */
+.mascot-idle-mecha { animation: idle-mecha 1.6s ease-in-out infinite; }
+.mascot-idle-kame  { animation: idle-kame  2.8s ease-in-out infinite; }
+.mascot-idle-fuku  { animation: idle-fuku  1.8s ease-in-out infinite; }
+.mascot-idle-roki  { animation: idle-roki  2.0s ease-in-out infinite; }
+.mascot-idle-st    { animation: idle-st    2.4s ease-in-out infinite; }
+
+/* ============================================================
+ * Reaction keyframes (7種)
+ * ============================================================ */
+
+@keyframes react-hop {
+  0%, 100% { transform: translateY(0);    }
+  30%      { transform: translateY(-14px); }
+  60%      { transform: translateY(0);    }
+  80%      { transform: translateY(-7px); }
+}
+
+@keyframes react-bigHop {
+  0%, 100% { transform: translateY(0)     scale(1);    }
+  30%      { transform: translateY(-24px) scale(1.04); }
+  60%      { transform: translateY(0)     scale(1);    }
+  80%      { transform: translateY(-16px) scale(1.03); }
+}
+
+@keyframes react-shake {
+  0%, 100% { transform: translateX(0);    }
+  20%      { transform: translateX(-6px); }
+  40%      { transform: translateX(6px);  }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX(4px);  }
+}
+
+@keyframes react-nod {
+  0%, 100% { transform: translateY(0)   rotate(0deg); }
+  40%      { transform: translateY(3px) rotate(1deg); }
+}
+
+@keyframes react-sink {
+  0%   { transform: translateY(0);    opacity: 1;    }
+  100% { transform: translateY(18px); opacity: 0.85; }
+}
+
+@keyframes react-leanBack {
+  0%, 100% { transform: rotate(0deg)  translateX(0);   }
+  40%      { transform: rotate(-5deg) translateX(-8px); }
+}
+
+@keyframes react-ready {
+  0%, 100% { transform: translateX(0)   scale(1);    }
+  40%      { transform: translateX(4px) scale(1.03); }
+}
+
+/* ── react クラス → アニメーション適用 ── */
+.mascot-react-hop      { animation: react-hop      0.8s ease-in-out; }
+.mascot-react-bigHop   { animation: react-bigHop   1.0s ease-in-out; }
+.mascot-react-shake    { animation: react-shake     0.6s ease-in-out; }
+.mascot-react-nod      { animation: react-nod       0.7s ease-in-out; }
+.mascot-react-sink     { animation: react-sink       0.9s ease-out   forwards; }
+.mascot-react-leanBack { animation: react-leanBack  0.7s ease-in-out; }
+.mascot-react-ready    { animation: react-ready     0.7s ease-in-out; }
+
+/* ============================================================
+ * 吹き出し (ドット絵風)
+ * ============================================================ */
+
+.mascot-speech {
+  position: relative;
+  background: #ffffff;
+  border: 4px solid #000000;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: #000000;
+  white-space: pre-wrap;
+  max-width: 200px;
+  line-height: 1.5;
+  pointer-events: none;
+  /* フェードイン */
+  animation: speech-in 0.15s ease-out;
+}
+
+/* 吹き出しの三角 (下向き) — 外枠 (黒) */
+.mascot-speech::after {
+  content: '';
+  position: absolute;
+  bottom: -14px;
+  left: 16px;
+  border: 10px solid transparent;
+  border-top: 10px solid #000000;
+}
+
+/* 吹き出しの三角 (下向き) — 内枠 (白) */
+.mascot-speech::before {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 19px;
+  border: 7px solid transparent;
+  border-top: 7px solid #ffffff;
+  z-index: 1;
+}
+
+@keyframes speech-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}

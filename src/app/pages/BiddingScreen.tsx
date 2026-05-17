@@ -9,6 +9,7 @@ import { CITIES, MATERIAL_COST } from '../../lib/constants';
 import type { Company, AuctionBid } from '../../lib/types';
 import { setBgm, playSfx } from '../../lib/sound';
 import { useMultiplayer, useMpDispatch } from '../../lib/multiplayerContext';
+import { PresidentMascot } from '../components/PresidentMascot';
 
 const TEXT_COLOR: Record<string, string> = {
   player: 'text-mg-cyan', alpha: 'text-mg-pink', beta: 'text-mg-gold', gamma: 'text-mg-lime',
@@ -19,7 +20,7 @@ const BORDER_COLOR: Record<string, string> = {
 
 export function BiddingScreen() {
   const navigate            = useNavigate();
-  const { gs, dispatch }    = useGame();
+  const { gs, ui, dispatch }    = useGame();
   const mpDispatch          = useMpDispatch();
   const { isMultiplayer, isHost, myCompanyIdx } = useMultiplayer();
   const auction             = gs?.currentAuction ?? null;
@@ -310,6 +311,15 @@ export function BiddingScreen() {
             </Button>
           </div>
         </motion.div>
+      )}
+
+      {gs.companies[0]?.characterId && (
+        <PresidentMascot
+          characterId={ui.mascot?.characterId ?? gs.companies[0].characterId!}
+          expression={ui.mascot?.expression ?? 'normal'}
+          reaction={ui.mascot?.reaction ?? 'idle'}
+          speech={ui.mascot?.speech}
+        />
       )}
     </div>
   );

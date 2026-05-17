@@ -8,6 +8,7 @@ import confetti from 'canvas-confetti';
 import { Crown, Medal, RotateCcw, Home, History } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useGame } from '../../lib/gameContext';
+import { PresidentMascot } from '../components/PresidentMascot';
 import { equity, fmt } from '../../lib/gameState';
 import type { Company } from '../../lib/types';
 import { setBgm } from '../../lib/sound';
@@ -24,7 +25,7 @@ const TEXT_COLOR: Record<string, string> = {
 
 export function ResultsScreen() {
   const navigate   = useNavigate();
-  const { gs }     = useGame();
+  const { gs, ui } = useGame();
 
   useEffect(() => {
     if (!gs) { navigate('/'); return; }
@@ -208,6 +209,15 @@ export function ResultsScreen() {
           <History className="mr-2" /> 履歴を見る
         </Button>
       </motion.div>
+
+      {gs.companies[0]?.characterId && (
+        <PresidentMascot
+          characterId={ui.mascot?.characterId ?? gs.companies[0].characterId!}
+          expression={ui.mascot?.expression ?? 'normal'}
+          reaction={ui.mascot?.reaction ?? 'idle'}
+          speech={ui.mascot?.speech}
+        />
+      )}
     </div>
   );
 }

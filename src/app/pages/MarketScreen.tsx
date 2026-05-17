@@ -3,6 +3,8 @@ import { useNavigate } from "react-router";
 import { Button } from "../components/Button";
 import { ChevronLeft, Info, Activity } from "lucide-react";
 import { motion } from "motion/react";
+import { useGame } from "../../lib/gameContext";
+import { PresidentMascot } from "../components/PresidentMascot";
 
 const CITIES = [
   { id: "sapporo", name: "札幌", top: "15%", left: "75%", vol: 2, price: 16, sellers: ["cyan"] },
@@ -22,7 +24,9 @@ const SELLER_COLORS: Record<string, string> = {
 
 export function MarketScreen() {
   const navigate = useNavigate();
+  const { gs, ui } = useGame();
   const [hovered, setHovered] = useState<string | null>(null);
+  const player0 = gs?.companies[0];
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#050510] relative overflow-hidden">
@@ -126,6 +130,15 @@ export function MarketScreen() {
           ))}
         </div>
       </div>
+
+      {player0?.characterId && (
+        <PresidentMascot
+          characterId={ui.mascot?.characterId ?? player0.characterId!}
+          expression={ui.mascot?.expression ?? 'normal'}
+          reaction={ui.mascot?.reaction ?? 'idle'}
+          speech={ui.mascot?.speech}
+        />
+      )}
     </div>
   );
 }

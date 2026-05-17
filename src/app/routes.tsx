@@ -10,6 +10,8 @@ import { LobbyScreen } from "./pages/LobbyScreen";
 import { TutorialScreen } from "./pages/TutorialScreen";
 import { HistoryScreen } from "./pages/HistoryScreen";
 import { SettingsScreen } from "./pages/SettingsScreen";
+import { MascotDebugScreen } from "./pages/MascotDebugScreen";
+import { CharacterSelectScreen } from "./pages/CharacterSelectScreen";
 
 export const router = createBrowserRouter([
   {
@@ -26,6 +28,8 @@ export const router = createBrowserRouter([
       { path: "tutorial", Component: TutorialScreen },
       { path: "history", Component: HistoryScreen },
       { path: "settings", Component: SettingsScreen },
+      { path: "mascot-debug", Component: MascotDebugScreen },
+      { path: "character-select", Component: CharacterSelectScreen },
     ],
   },
 ]);

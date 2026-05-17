@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useReducer, type ReactNode } from 'react';
 import type { GameState, GameAction, GamePhase, LogClass, RiskCard, Company, AuctionCounter, UiState } from './types';
 import {
   initGame, resetPeriod, applyPostMarket, aiPeriodStartFinance,
@@ -8,6 +8,8 @@ import { executeAction } from './actions';
 import { aiChooseAction } from './ai';
 import { resolveAuction } from './auction';
 import { CITIES, FLYER_ADV, RD_ADV, DR, CR } from './constants';
+import { buildMascotReaction } from './mascotReactions';
+import type { MascotEvent } from './mascotTypes';
 import type { CityId } from './types';
 
 /* === UI デフォルト === */
@@ -45,7 +47,12 @@ function advanceTurn(
   }
   const nextCompany = cleanGs.companies[playerIdx];
   const nextPhase: GamePhase = nextCompany?.type === 'player' ? 'draw-ready' : 'ai-thinking';
-  return { gs: { ...cleanGs, playerIdx, round }, ui: { ...ui, phase: nextPhase, drawnCard: null } };
+  let newUi: UiState = { ...ui, phase: nextPhase, drawnCard: null };
+  if (nextPhase === 'draw-ready') {
+    const charId = cleanGs.companies[0]?.characterId ?? 'mecha';
+    newUi = { ...newUi, mascot: buildMascotReaction('turnStart', charId, ui.mascot) };
+  }
+  return { gs: { ...cleanGs, playerIdx, round }, ui: newUi };
 }
 
 /* === リスクカード適用 (AI 向け — UI 遷移なし) === */
@@ -174,15 +181,24 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
     case 'INIT_GAME': {
       const newGs = initGame(action.totalPeriods, action.config);
       if (action.mpOverrides) {
-        action.mpOverrides.forEach(({ idx, name, type }) => {
+        action.mpOverrides.forEach(({ idx, name, type, companyName, presidentName, characterId }) => {
           if (newGs.companies[idx]) {
-            newGs.companies[idx] = { ...newGs.companies[idx], name, type };
+            newGs.companies[idx] = {
+              ...newGs.companies[idx],
+              name,
+              type,
+              ...(companyName    !== undefined && { companyName }),
+              ...(presidentName  !== undefined && { presidentName }),
+              ...(characterId    !== undefined && { characterId }),
+            };
           }
         });
       }
+      const charId = newGs.companies[0]?.characterId ?? 'mecha';
+      const mascot = buildMascotReaction('gameStart', charId, undefined);
       return {
         gs: newGs,
-        ui: { ...defaultUi, phase: 'period-start' },
+        ui: { ...defaultUi, phase: 'period-start', mascot },
       };
     }
 
@@ -437,7 +453,20 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
     /* ---- オークション解決 ---- */
     case 'RESOLVE_AUCTION': {
       if (!gs || !gs.currentAuction) return state;
-      return { ...state, gs: resolveAuction(gs) };
+      const newGs = resolveAuction(gs);
+      const player0 = gs.companies[0];
+      const charId = player0?.characterId ?? 'mecha';
+      const inAuction =
+        gs.currentAuction.parent.id === player0.id ||
+        gs.currentAuction.children.some(c => c.id === player0.id);
+      let mascot = ui.mascot;
+      if (inAuction) {
+        const summary = newGs.lastBids.companySummary[player0.id];
+        if (summary !== undefined) {
+          mascot = buildMascotReaction(summary.soldQty > 0 ? 'bidSuccess' : 'bidFail', charId, ui.mascot);
+        }
+      }
+      return { ...state, gs: newGs, ui: { ...ui, mascot } };
     }
 
     /* ---- 期末処理 ---- */
@@ -450,14 +479,31 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
       if (pr.empCost  > 0) newGs = recordTxn(newGs, DR.F1, CR.CASH,  pr.empCost,  '人件費');
       if (pr.depr     > 0) newGs = recordTxn(newGs, DR.F2, CR.EQUIP, pr.depr,     '減価償却');
       if (pr.interest > 0) newGs = recordTxn(newGs, DR.F3, CR.CASH,  pr.interest, '支払利息');
-      return { ...state, gs: newGs, ui: { ...ui, phase: 'period-end' } };
+      // マスコット: 決算 → 利益/損失 → 資金危機
+      const charId = companies[0]?.characterId ?? 'mecha';
+      let mascot = buildMascotReaction('accounting', charId, ui.mascot);
+      if (pr.opProfit > 0) {
+        mascot = buildMascotReaction('profit', charId, mascot);
+      } else if (pr.opProfit < 0) {
+        mascot = buildMascotReaction('loss', charId, mascot);
+      }
+      if (companies[0].cash < 30) {
+        mascot = buildMascotReaction('cashCrisis', charId, mascot);
+      }
+      return { ...state, gs: newGs, ui: { ...ui, phase: 'period-end', mascot } };
     }
 
     /* ---- 次の期へ ---- */
     case 'ADVANCE_PERIOD': {
       if (!gs) return state;
       if (gs.currentPeriod >= gs.totalPeriods) {
-        return { ...state, ui: { ...ui, phase: 'results' } };
+        const charId = gs.companies[0]?.characterId ?? 'mecha';
+        const sorted = [...gs.companies].sort(
+          (a, b) => (b.retainedEarnings + b.cash) - (a.retainedEarnings + a.cash),
+        );
+        const event = sorted[0]?.id === gs.companies[0].id ? 'gameClear' : 'gameOver';
+        const mascot = buildMascotReaction(event, charId, ui.mascot);
+        return { ...state, ui: { ...ui, phase: 'results', mascot } };
       }
       const newGs = resetPeriod({ ...gs, currentPeriod: gs.currentPeriod + 1 });
       return {
@@ -472,10 +518,22 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
       if (!gs) return state;
       const target = action.company ?? gs.companies[0];
       const newGs  = executeAction(gs, action.actionId, action.params, target);
-      if (newGs.currentAuction) {
-        return { ...state, gs: newGs, ui: { ...ui, phase: 'auction' } };
+      // プレイヤーのアクションのみマスコット反応
+      let newUi = ui;
+      if (!action.company || action.company.id === gs.companies[0].id) {
+        const charId = gs.companies[0]?.characterId ?? 'mecha';
+        if (action.actionId === 'buyMat') {
+          newUi = { ...newUi, mascot: buildMascotReaction('purchaseSuccess', charId, ui.mascot) };
+        } else if (action.actionId === 'produce') {
+          newUi = { ...newUi, mascot: buildMascotReaction('productionStart', charId, ui.mascot) };
+        } else if (action.actionId === 'rd') {
+          newUi = { ...newUi, mascot: buildMascotReaction('researchStart', charId, ui.mascot) };
+        }
       }
-      return { ...state, ...advanceTurn(state, newGs, ui) };
+      if (newGs.currentAuction) {
+        return { ...state, gs: newGs, ui: { ...newUi, phase: 'auction' } };
+      }
+      return { ...state, ...advanceTurn(state, newGs, newUi) };
     }
 
     /* ---- AI ターン全処理 ---- */
@@ -555,6 +613,13 @@ function reducer(state: CombinedState, action: GameAction): CombinedState {
       return { ...state, gs: recordTxn(gs, action.dr, action.cr, action.amount, action.desc) };
     }
 
+    /* ---- マスコットイベント発火 ---- */
+    case 'TRIGGER_MASCOT_EVENT': {
+      const charId = gs?.companies[0]?.characterId ?? 'mecha';
+      const mascot = buildMascotReaction(action.event, charId, ui.mascot);
+      return { ...state, ui: { ...ui, mascot } };
+    }
+
     /* ---- ゲームリセット (ホスト切断時など) ---- */
     case 'RESET_GAME':
       return initialState;
@@ -569,15 +634,20 @@ interface GameContextValue {
   gs: GameState | null;
   ui: UiState;
   dispatch: (action: GameAction) => void;
+  triggerMascotEvent: (event: MascotEvent) => void;
 }
 
 const GameContext = createContext<GameContextValue | null>(null);
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const triggerMascotEvent = useCallback(
+    (event: MascotEvent) => dispatch({ type: 'TRIGGER_MASCOT_EVENT', event }),
+    [],
+  );
 
   return (
-    <GameContext.Provider value={{ gs: state.gs, ui: state.ui, dispatch }}>
+    <GameContext.Provider value={{ gs: state.gs, ui: state.ui, dispatch, triggerMascotEvent }}>
       {children}
     </GameContext.Provider>
   );
@@ -588,6 +658,8 @@ export function useGame(): GameContextValue {
   if (!ctx) throw new Error('useGame must be used inside GameProvider');
   return ctx;
 }
+
+export { type MascotEvent };
 
 /* === 便利セレクタ === */
 export function usePlayer() {

@@ -1,4 +1,5 @@
 import { CITIES, RISK_DEFS } from './constants';
+import type { MascotId } from './mascotTypes';
 
 /* === 基本型 === */
 export type AiLevel = 'weak' | 'medium' | 'strong';
@@ -85,6 +86,10 @@ export interface Company {
   totalRevenue:      number;
   totalProfit:       number;
   result?:           PeriodResult;
+  // マスコット関連 (CharacterSelect で設定、optional で後方互換)
+  companyName?:      string;
+  presidentName?:    string;
+  characterId?:      MascotId;
 }
 
 export interface PendingSale {
@@ -171,6 +176,7 @@ export interface UiState {
   drawnCard: null | { type: 'decision' | 'risk-trigger' };
   drawnRiskCard: null | RiskCard;
   riskTarget: null | Company;
+  mascot?: import('./mascotTypes').MascotState;
 }
 
 /* === ゲームログ === */
@@ -224,7 +230,7 @@ export interface GameState {
 
 /* === Context のアクション型 === */
 export type GameAction =
-  | { type: 'INIT_GAME'; totalPeriods: number; config: GameConfig; mpOverrides?: { idx: number; name: string; type: CompanyType }[] }
+  | { type: 'INIT_GAME'; totalPeriods: number; config: GameConfig; mpOverrides?: Array<{ idx: number; name: string; type: CompanyType; companyName?: string; presidentName?: string; characterId?: MascotId }> }
   | { type: 'PERIOD_START_FINANCE'; borrow: number; repay: number; company?: Company }
   | { type: 'DRAW_MAIN_CARD' }
   | { type: 'START_PLAYER_ACTION_MENU' }
@@ -244,6 +250,7 @@ export type GameAction =
   | { type: 'ADVANCE_TURN' }
   | { type: 'AI_TAKE_TURN'; company: Company }
   | { type: 'SET_STATE'; gs: GameState; ui: UiState }
+  | { type: 'TRIGGER_MASCOT_EVENT'; event: import('./mascotTypes').MascotEvent }
   | { type: 'RESET_GAME' };
 
 /* === 画面フェーズ === */
