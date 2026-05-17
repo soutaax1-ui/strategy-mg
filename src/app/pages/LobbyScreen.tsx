@@ -10,6 +10,7 @@ import {
   type RoomRes,
 } from '../../lib/socketClient';
 import { useMultiplayer } from '../../lib/multiplayerContext';
+import { setBgm } from '../../lib/sound';
 
 const AI_SLOTS = [
   { name: 'アルファ商事', borderColor: 'border-mg-pink',  textColor: 'text-mg-pink'  },
@@ -36,6 +37,8 @@ export function LobbyScreen() {
   const [fillWithAi,   setFillWithAi]   = useState(true);
 
   const { startGame } = useMultiplayer();
+
+  useEffect(() => { setBgm('title'); }, []);
 
   /* ── ソケット接続 ── */
   useEffect(() => {

@@ -1,216 +1,269 @@
 import * as Tone from 'tone';
 
-export type BgmTrack = 'title' | 'dashboard' | 'bidding' | 'accounting' | 'victory' | 'defeat';
+/* === 型 === */
+export type BgmTrack = 'title' | 'game1' | 'game2' | 'result';
 export type SfxName  = 'cardDraw' | 'confirm' | 'risk' | 'sale' | 'aiCounter' | 'pass';
 
-/* === 状態 === */
-let _initialized   = false;
-let _muted         = false;
-let _currentTrack: BgmTrack | null = null;
-let _pendingTrack:  BgmTrack | null = null;
-let _master:        Tone.Volume | null = null;
-let _cleanup:       (() => void) | null = null;
+/* === localStorage キー === */
+const LS_BGM_VOL     = 'mg_bgm_vol';
+const LS_BGM_ENABLED = 'mg_bgm_enabled';
+const LS_SE_VOL      = 'mg_se_vol';
+const LS_SE_ENABLED  = 'mg_se_enabled';
 
-/* === AudioContext 初期化 (ユーザー操作後に一度だけ呼ぶ) === */
-export async function initAudio(): Promise<void> {
-  if (_initialized) return;
-  await Tone.start();
-  _master = new Tone.Volume(-10).toDestination();
-  Tone.getTransport().start();
-  _initialized = true;
-  if (_pendingTrack) {
-    const t = _pendingTrack;
-    _pendingTrack = null;
-    setBgm(t);
-  }
+function lsGet(key: string, fallback: string): string {
+  try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; }
+}
+function lsSet(key: string, val: string): void {
+  try { localStorage.setItem(key, val); } catch {}
 }
 
-/* === 出力先 === */
-function out(): Tone.ToneAudioNode {
+/* === 状態 === */
+let _seInitialized  = false;
+let _bgmInitialized = false;
+let _pendingTrack:  BgmTrack | null = null;
+
+let _bgmVol     = Number(lsGet(LS_BGM_VOL,     '0.8'));
+let _bgmEnabled = lsGet(LS_BGM_ENABLED, 'true') === 'true';
+let _seVol      = Number(lsGet(LS_SE_VOL,      '1.0'));
+let _seEnabled  = lsGet(LS_SE_ENABLED,  'true') === 'true';
+let _allMuted   = false;
+
+let _currentTrackId: BgmTrack | null = null;
+let _currentAudio:   HTMLAudioElement | null = null;
+let _fadeOutTimer:   ReturnType<typeof setInterval> | null = null;
+
+/* === MP3 ファイルマップ === */
+const BGM_FILES: Record<BgmTrack, string> = {
+  title:  '/audio/bgm_title.mp3',
+  game1:  '/audio/bgm_game1.mp3',
+  game2:  '/audio/bgm_game2.mp3',
+  result: '/audio/bgm_result.mp3',
+};
+
+/* === AudioElement キャッシュ (lazy) === */
+const _cache: Partial<Record<BgmTrack, HTMLAudioElement>> = {};
+
+function getAudio(track: BgmTrack): HTMLAudioElement {
+  if (!_cache[track]) {
+    const a = new Audio(BGM_FILES[track]);
+    a.loop   = true;
+    a.volume = 0;
+    _cache[track] = a;
+  }
+  return _cache[track]!;
+}
+
+/* === クロスフェード === */
+const FADE_MS    = 320;
+const FADE_STEPS = 16;
+
+function clearFadeOut() {
+  if (_fadeOutTimer !== null) { clearInterval(_fadeOutTimer); _fadeOutTimer = null; }
+}
+
+function fadeOut(audio: HTMLAudioElement): void {
+  clearFadeOut();
+  const start = audio.volume;
+  let step = 0;
+  _fadeOutTimer = setInterval(() => {
+    step++;
+    audio.volume = Math.max(0, start * (1 - step / FADE_STEPS));
+    if (step >= FADE_STEPS) {
+      clearFadeOut();
+      audio.pause();
+      audio.currentTime = 0;
+    }
+  }, FADE_MS / FADE_STEPS);
+}
+
+function fadeIn(audio: HTMLAudioElement, targetVol: number): void {
+  audio.volume = 0;
+  audio.play().catch(() => {/* autoplay blocked — user hasn't interacted yet */});
+  let step = 0;
+  const t = setInterval(() => {
+    step++;
+    audio.volume = Math.min(targetVol, targetVol * (step / FADE_STEPS));
+    if (step >= FADE_STEPS) clearInterval(t);
+  }, FADE_MS / FADE_STEPS);
+}
+
+function targetBgmVol(): number {
+  return _bgmEnabled && !_allMuted ? _bgmVol : 0;
+}
+
+/* === SE 用 Tone.js === */
+let _master: Tone.Volume | null = null;
+
+function sfxOut(): Tone.ToneAudioNode {
   return (_master as Tone.ToneAudioNode) ?? Tone.getDestination();
 }
 
-/* === シンセファクトリ === */
-function sqSynth(vol = -14): Tone.Synth {
-  return new Tone.Synth({
-    oscillator: { type: 'square' } as any,
-    envelope:   { attack: 0.005, decay: 0.1, sustain: 0.3, release: 0.06 },
-    volume:     vol,
-  }).connect(out());
+function syncSeMaster(): void {
+  if (!_master) return;
+  if (!_seEnabled || _allMuted || _seVol <= 0) {
+    _master.mute = true;
+  } else {
+    _master.mute  = false;
+    _master.volume.value = Tone.gainToDb(_seVol);
+  }
 }
 
-function triSynth(vol = -18): Tone.Synth {
-  return new Tone.Synth({
-    oscillator: { type: 'triangle' } as any,
-    envelope:   { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.1 },
-    volume:     vol,
-  }).connect(out());
+/* === AudioContext 初期化 (最初のユーザー操作後に一度だけ呼ぶ) === */
+export async function initAudio(): Promise<void> {
+  if (!_seInitialized) {
+    await Tone.start();
+    _master = new Tone.Volume(0).toDestination();
+    Tone.getTransport().start();
+    _seInitialized = true;
+    syncSeMaster();
+  }
+  if (!_bgmInitialized) {
+    _bgmInitialized = true;
+    if (_pendingTrack) {
+      const t = _pendingTrack;
+      _pendingTrack = null;
+      setBgm(t);
+    }
+  }
 }
 
-/* === シーケンス作成ヘルパー === */
-function mkSeq(
-  synth: Tone.Synth,
-  notes: (string | null)[],
-  sub:   string = '8n',
-  dur:   string = '8n',
-): Tone.Sequence<string | null> {
-  const seq = new Tone.Sequence<string | null>(
-    (time, note) => { if (note) synth.triggerAttackRelease(note, dur, time); },
-    notes,
-    sub as any,
-  );
-  seq.start('+0');
-  return seq;
-}
+/* ================================================================
+   BGM API
+   ================================================================ */
 
-function disposeAll(...items: (Tone.Sequence<any> | Tone.Synth | null)[]): void {
-  items.forEach(item => {
-    if (!item) return;
-    try { (item as any).stop?.(); } catch (_) {}
-    try { item.dispose(); }        catch (_) {}
-  });
-}
-
-/* === BGM 定義 (8ビット 矩形波 + 三角波ベース) ===
- *   各トラックはクリーンアップ関数を返す
- */
-const BGM_TRACKS: Record<BgmTrack, () => () => void> = {
-
-  /* ── タイトル: C major 明るくワクワク 120BPM ── */
-  title: () => {
-    Tone.getTransport().bpm.value = 120;
-    const mel  = sqSynth(-12);
-    const bass = triSynth(-18);
-    const s1 = mkSeq(mel,  ['C5','E5','G5','E5','C5','G5','A5','G5','F5','A5','C5','A5','G5','E5','D5','C5']);
-    const s2 = mkSeq(bass, ['C3',null,'G2',null,'C3',null,'G2',null,'A2',null,'F2',null,'G2',null,'G2',null]);
-    return () => disposeAll(s1, s2, mel, bass);
-  },
-
-  /* ── ダッシュボード: A minor 緊張感ある戦略 100BPM ── */
-  dashboard: () => {
-    Tone.getTransport().bpm.value = 100;
-    const mel  = sqSynth(-13);
-    const bass = triSynth(-18);
-    const s1 = mkSeq(mel,  ['A4','C5','E5','D5','C5','B4','A4',null,'G4','A4','C5','B4','A4','G4','F4','E4']);
-    const s2 = mkSeq(bass, ['A2',null,'A2',null,'E2',null,'E2',null,'F2',null,'F2',null,'G2',null,'E2',null]);
-    return () => disposeAll(s1, s2, mel, bass);
-  },
-
-  /* ── 入札: E minor 高速バトル 148BPM ── */
-  bidding: () => {
-    Tone.getTransport().bpm.value = 148;
-    const mel  = sqSynth(-12);
-    const bass = triSynth(-17);
-    // メロディは16分音符で鳴らすため dur='16n'
-    const s1 = mkSeq(mel,  ['E5','G5','B5','G5','E5','D5','B4','D5','E5','G5','A5','G5','E5','D5','B4','A4'], '8n', '16n');
-    const s2 = mkSeq(bass, ['E2',null,'B2',null,'G2',null,'D2',null,'E2',null,'A2',null,'B2',null,'B2',null]);
-    return () => disposeAll(s1, s2, mel, bass);
-  },
-
-  /* ── 決算: F major 落ち着いた集計 80BPM ── */
-  accounting: () => {
-    Tone.getTransport().bpm.value = 80;
-    const mel  = sqSynth(-14);
-    const bass = triSynth(-19);
-    const s1 = mkSeq(mel,  ['F4','A4','C5','A4','F4','G4','A4','G4','Bb4','A4','G4','A4','Bb4','C5','A4','F4']);
-    const s2 = mkSeq(bass, ['F2',null,'C3',null,'F2',null,'G2',null,'Bb2',null,'F2',null,'G2',null,'C3',null]);
-    return () => disposeAll(s1, s2, mel, bass);
-  },
-
-  /* ── 勝利: G major ファンファーレ 130BPM ── */
-  victory: () => {
-    Tone.getTransport().bpm.value = 130;
-    const mel  = sqSynth(-11);
-    const bass = triSynth(-16);
-    const s1 = mkSeq(mel,  ['G4','G4','G4','E4','G4','A4','B4','G4','C5','C5','C5','B4','C5','D5','E5','G5']);
-    const s2 = mkSeq(bass, ['G2',null,'G2',null,'D2',null,'G2',null,'C3',null,'C3',null,'G2',null,'D3',null]);
-    return () => disposeAll(s1, s2, mel, bass);
-  },
-
-  /* ── 敗北: 下降音型 ゲームオーバー 65BPM ── */
-  defeat: () => {
-    Tone.getTransport().bpm.value = 65;
-    const mel  = sqSynth(-14);
-    const bass = triSynth(-19);
-    const s1 = mkSeq(mel,  ['C5',null,'B4',null,'Bb4',null,'A4',null,'Ab4',null,'G4',null,'F4',null,'E4',null]);
-    const s2 = mkSeq(bass, ['C2',null,'G2',null, 'F2',null,'C2',null, 'Ab1',null,'Eb2',null,'F2',null,'C2',null]);
-    return () => disposeAll(s1, s2, mel, bass);
-  },
-};
-
-/* === BGM 公開 API === */
 export function setBgm(track: BgmTrack): void {
-  if (!_initialized) { _pendingTrack = track; return; }
-  if (track === _currentTrack) return;
-  if (_cleanup) { try { _cleanup(); } catch(_) {} _cleanup = null; }
-  _currentTrack = track;
-  try { _cleanup = BGM_TRACKS[track](); } catch(e) { console.warn('BGM start error', e); }
+  if (!_bgmInitialized) { _pendingTrack = track; return; }
+
+  const isSame    = track === _currentTrackId;
+  const isPlaying = _currentAudio !== null && !_currentAudio.paused;
+
+  _currentTrackId = track;
+  const newAudio  = getAudio(track);
+
+  if (isSame && isPlaying) return; // 同じ曲が再生中なら継続
+
+  if (!_bgmEnabled || _allMuted) {
+    // BGM 無効: state だけ更新して再生しない
+    _currentAudio = newAudio;
+    return;
+  }
+
+  if (_currentAudio && _currentAudio !== newAudio && isPlaying) {
+    // 別の曲を再生中: クロスフェード
+    const old = _currentAudio;
+    _currentAudio = newAudio;
+    fadeOut(old);
+    setTimeout(() => {
+      newAudio.currentTime = 0;
+      fadeIn(newAudio, targetBgmVol());
+    }, FADE_MS / 2);
+  } else {
+    _currentAudio = newAudio;
+    newAudio.currentTime = 0;
+    fadeIn(newAudio, targetBgmVol());
+  }
 }
 
 export function stopBgm(): void {
-  if (_cleanup) { try { _cleanup(); } catch(_) {} _cleanup = null; }
-  _currentTrack = null;
+  if (_currentAudio && !_currentAudio.paused) fadeOut(_currentAudio);
+  _currentTrackId = null;
+  _currentAudio   = null;
 }
+
+export function setBgmVolume(vol: number): void {
+  _bgmVol = Math.max(0, Math.min(1, vol));
+  lsSet(LS_BGM_VOL, String(_bgmVol));
+  if (_currentAudio) _currentAudio.volume = targetBgmVol();
+}
+
+export function setBgmEnabled(val: boolean): void {
+  _bgmEnabled = val;
+  lsSet(LS_BGM_ENABLED, String(val));
+  if (!_currentAudio) return;
+  if (val && !_allMuted) {
+    _currentAudio.volume = _bgmVol;
+    _currentAudio.play().catch(() => {});
+  } else {
+    _currentAudio.volume = 0;
+    _currentAudio.pause();
+  }
+}
+
+export function getBgmVolume(): number  { return _bgmVol; }
+export function getBgmEnabled(): boolean { return _bgmEnabled; }
+
+/* ================================================================
+   SE API
+   ================================================================ */
+
+export function setSeVolume(vol: number): void {
+  _seVol = Math.max(0, Math.min(1, vol));
+  lsSet(LS_SE_VOL, String(_seVol));
+  syncSeMaster();
+}
+
+export function setSeEnabled(val: boolean): void {
+  _seEnabled = val;
+  lsSet(LS_SE_ENABLED, String(val));
+  syncSeMaster();
+}
+
+export function getSeVolume(): number  { return _seVol; }
+export function getSeEnabled(): boolean { return _seEnabled; }
+
+/* ================================================================
+   グローバルミュート (Layout.tsx のトグルボタン用)
+   ================================================================ */
 
 export function setMuted(val: boolean): void {
-  _muted = val;
-  if (_master) _master.mute = val;
+  _allMuted = val;
+  if (_currentAudio) _currentAudio.volume = targetBgmVol();
+  syncSeMaster();
 }
 
-export function getMuted(): boolean { return _muted; }
+export function getMuted(): boolean { return _allMuted; }
 
-/* === SFX ===
- *   ワンショット: 一時 Synth を生成 → 演奏 → setTimeout で破棄
- */
+/* ================================================================
+   SFX (Tone.js ワンショット — 変更なし)
+   ================================================================ */
+
 function fireSfx(
   notes: Array<[string, number, string]>,
   opts: Record<string, any> = {},
 ): void {
-  if (!_initialized || _muted) return;
+  if (!_seInitialized || !_seEnabled || _allMuted) return;
   const synth = new Tone.Synth({
     oscillator: { type: 'square' } as any,
     envelope:   { attack: 0.003, decay: 0.08, sustain: 0.2, release: 0.05 },
     volume:     -10,
     ...opts,
-  }).connect(out());
+  }).connect(sfxOut());
   const now = Tone.now();
   notes.forEach(([note, delay, dur]) => synth.triggerAttackRelease(note, dur as any, now + delay));
   const maxDelay = Math.max(...notes.map(([, d]) => d));
-  setTimeout(() => { try { synth.dispose(); } catch(_) {} }, (maxDelay + 1.5) * 1000);
+  setTimeout(() => { try { synth.dispose(); } catch (_) {} }, (maxDelay + 1.5) * 1000);
 }
 
 export function playSfx(name: SfxName): void {
   switch (name) {
-
-    /* カードをめくる: 短い上昇スイープ */
     case 'cardDraw':
       fireSfx([['C5', 0, '32n'], ['E5', 0.07, '32n'], ['G5', 0.14, '16n']]);
       break;
-
-    /* 行動確定: 明るい 2 音 */
     case 'confirm':
       fireSfx([['G5', 0, '16n'], ['C6', 0.12, '8n']]);
       break;
-
-    /* リスクカード: 警告的な下降 3 音 */
     case 'risk':
       fireSfx(
         [['A5', 0, '8n'], ['F#5', 0.16, '8n'], ['D5', 0.32, '4n']],
         { volume: -8, envelope: { attack: 0.01, decay: 0.2, sustain: 0.4, release: 0.2 } },
       );
       break;
-
-    /* 売上確定: コイン音 (上昇アルペジオ) */
     case 'sale':
       fireSfx([['C5', 0, '32n'], ['E5', 0.06, '32n'], ['G5', 0.12, '32n'], ['C6', 0.18, '8n']]);
       break;
-
-    /* AI 対抗宣言: 短いドラマティックなスタブ */
     case 'aiCounter':
       fireSfx([['E4', 0, '16n'], ['A4', 0.1, '8n']], { volume: -12 });
       break;
-
-    /* パス: 軽い下降 */
     case 'pass':
       fireSfx([['G4', 0, '32n'], ['E4', 0.08, '32n']]);
       break;

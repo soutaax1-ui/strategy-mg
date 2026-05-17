@@ -7,7 +7,7 @@ import { useGame } from '../../lib/gameContext';
 import { aiDecideCounter } from '../../lib/auction';
 import { CITIES, MATERIAL_COST } from '../../lib/constants';
 import type { Company, AuctionBid } from '../../lib/types';
-import { setBgm, playSfx } from '../../lib/sound';
+import { playSfx } from '../../lib/sound';
 import { useMultiplayer, useMpDispatch } from '../../lib/multiplayerContext';
 import { PresidentMascot } from '../components/PresidentMascot';
 
@@ -34,8 +34,7 @@ export function BiddingScreen() {
     if (!gs || !auction) navigate('/dashboard');
   }, [gs, auction, navigate]);
 
-  /* BGM */
-  useEffect(() => { setBgm('bidding'); }, []);
+  /* BGM はダッシュボードから継続 */
 
   /* マルチプレイ: 解決後に非ホストも自動でダッシュボードへ */
   useEffect(() => {

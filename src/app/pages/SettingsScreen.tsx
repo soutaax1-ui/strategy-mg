@@ -1,19 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { ArrowLeft, Volume2, Monitor, Gamepad2, Database, Info, Save, X, AlertTriangle, Download, Upload, Trash2, Play } from "lucide-react";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { cn } from "../../lib/utils";
+import { setBgm, setBgmVolume, setBgmEnabled, getBgmVolume, getBgmEnabled, setSeVolume, setSeEnabled, getSeVolume, getSeEnabled } from "../../lib/sound";
 
 export function SettingsScreen() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("sound");
 
-  // Mock State
-  const [bgmVol, setBgmVol] = useState(80);
-  const [seVol, setSeVol] = useState(100);
-  const [bgmOn, setBgmOn] = useState(true);
-  const [seOn, setSeOn] = useState(true);
+  // sound.ts の現在値を初期値として読み込む
+  const [bgmVol, setBgmVolState] = useState(() => Math.round(getBgmVolume() * 100));
+  const [seVol,  setSeVolState]  = useState(() => Math.round(getSeVolume()  * 100));
+  const [bgmOn,  setBgmOn]       = useState(getBgmEnabled);
+  const [seOn,   setSeOn]        = useState(getSeEnabled);
+
+  useEffect(() => { setBgm('title'); }, []);
 
   const [currencyFormat, setCurrencyFormat] = useState("man"); // man, yen
   const [animSpeed, setAnimSpeed] = useState("full"); // full, light, off
@@ -87,7 +90,7 @@ export function SettingsScreen() {
               <div className="space-y-6">
                 <div className="flex items-center justify-between p-4 bg-mg-elevated border-2 border-mg-border">
                   <span className="font-dot text-lg">BGM オン/オフ</span>
-                  <Switch checked={bgmOn} onChange={() => setBgmOn(!bgmOn)} />
+                  <Switch checked={bgmOn} onChange={() => { const next = !bgmOn; setBgmOn(next); setBgmEnabled(next); }} />
                 </div>
 
                 <div className={cn("space-y-4", !bgmOn && "opacity-50 pointer-events-none")}>
@@ -96,7 +99,8 @@ export function SettingsScreen() {
                     <span className="text-mg-cyan">{bgmVol}%</span>
                   </div>
                   <input
-                    type="range" min="0" max="100" value={bgmVol} onChange={e => setBgmVol(Number(e.target.value))}
+                    type="range" min="0" max="100" value={bgmVol}
+                    onChange={e => { const v = Number(e.target.value); setBgmVolState(v); setBgmVolume(v / 100); }}
                     className="w-full accent-mg-cyan h-2 bg-mg-border appearance-none cursor-pointer"
                   />
                 </div>
@@ -105,7 +109,7 @@ export function SettingsScreen() {
 
                 <div className="flex items-center justify-between p-4 bg-mg-elevated border-2 border-mg-border">
                   <span className="font-dot text-lg">効果音 (SE) オン/オフ</span>
-                  <Switch checked={seOn} onChange={() => setSeOn(!seOn)} />
+                  <Switch checked={seOn} onChange={() => { const next = !seOn; setSeOn(next); setSeEnabled(next); }} />
                 </div>
 
                 <div className={cn("space-y-4", !seOn && "opacity-50 pointer-events-none")}>
@@ -114,7 +118,8 @@ export function SettingsScreen() {
                     <span className="text-mg-cyan">{seVol}%</span>
                   </div>
                   <input
-                    type="range" min="0" max="100" value={seVol} onChange={e => setSeVol(Number(e.target.value))}
+                    type="range" min="0" max="100" value={seVol}
+                    onChange={e => { const v = Number(e.target.value); setSeVolState(v); setSeVolume(v / 100); }}
                     className="w-full accent-mg-cyan h-2 bg-mg-border appearance-none cursor-pointer"
                   />
                   <div className="flex justify-end pt-2">

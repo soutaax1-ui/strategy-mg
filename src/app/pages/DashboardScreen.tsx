@@ -39,7 +39,9 @@ export function DashboardScreen() {
   }, [gs, navigate]);
 
   // BGM
-  useEffect(() => { setBgm('dashboard'); }, []);
+  // 期数前半 → game1、後半 → game2 で自動切替
+  const gameBgmTrack = gs && gs.currentPeriod <= Math.floor(gs.totalPeriods / 2) ? 'game1' : 'game2';
+  useEffect(() => { setBgm(gameBgmTrack); }, [gameBgmTrack]);
 
   // フェーズが draw-ready に変わったらカードをリセット
   useEffect(() => {

@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import { ArrowLeft, ChevronRight, ChevronLeft, Lightbulb, AlertCircle, Play, Building2, User, Coins, TrendingUp } from "lucide-react";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { cn } from "../../lib/utils";
+import { setBgm } from "../../lib/sound";
 
 const CHAPTERS = [
   {
@@ -122,6 +123,7 @@ const CHAPTERS = [
 export function TutorialScreen() {
   const navigate = useNavigate();
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
+  useEffect(() => { setBgm('title'); }, []);
 
   const chapter = CHAPTERS[currentChapterIndex];
   const isFirst = currentChapterIndex === 0;

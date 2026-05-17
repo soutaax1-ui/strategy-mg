@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { ArrowLeft, Crown, Medal, RotateCcw, Swords, Trophy, Target, TrendingUp, SearchX } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { cn } from "../../lib/utils";
+import { setBgm } from "../../lib/sound";
 
 // Mock Data
 const mockHistory = [
@@ -17,6 +18,7 @@ const mockHistory = [
 export function HistoryScreen() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<"all" | "win" | "loss">("all");
+  useEffect(() => { setBgm('title'); }, []);
 
   const filteredHistory = mockHistory.filter(h => {
     if (filter === "win") return h.rank === 1;

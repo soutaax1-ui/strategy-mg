@@ -30,7 +30,7 @@ export function ResultsScreen() {
   useEffect(() => {
     if (!gs) { navigate('/'); return; }
     const sorted = [...gs.companies].sort((a, b) => equity(b) - equity(a));
-    setBgm(sorted[0].id === 'player' ? 'victory' : 'defeat');
+    setBgm('result');
     const duration    = 3000;
     const animationEnd = Date.now() + duration;
     const defaults    = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };

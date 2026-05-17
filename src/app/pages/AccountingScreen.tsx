@@ -8,7 +8,6 @@ import { useGame } from '../../lib/gameContext';
 import { calcBS, equity, fmt } from '../../lib/gameState';
 import { DR_LABELS, CR_LABELS } from '../../lib/constants';
 import type { Company, PeriodResult } from '../../lib/types';
-import { setBgm } from '../../lib/sound';
 import { PresidentMascot } from '../components/PresidentMascot';
 
 const TEXT_COLOR: Record<string, string> = {
@@ -20,7 +19,7 @@ export function AccountingScreen() {
   const { gs, ui, dispatch }  = useGame();
   const [tab, setTab]     = useState<'PL' | 'BS' | 'MX' | 'COMP'>('PL');
 
-  useEffect(() => { setBgm('accounting'); }, []);
+  /* BGM はダッシュボードから継続 */
 
   if (!gs) { navigate('/'); return null; }
 

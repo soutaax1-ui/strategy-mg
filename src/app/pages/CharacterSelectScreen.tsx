@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, Play, Users, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '../components/Button';
 import { useGame } from '../../lib/gameContext';
 import { DIFF } from '../../lib/constants';
-import { playSfx } from '../../lib/sound';
+import { setBgm, playSfx } from '../../lib/sound';
 import type { MascotId } from '../../lib/mascotTypes';
 import '../styles/mascot.css';
 
@@ -43,6 +43,8 @@ export function CharacterSelectScreen() {
   const [companyName,   setCompanyName]   = useState('');
   const [presidentName, setPresidentName] = useState('');
   const [selectedId,    setSelectedId]    = useState<MascotId | null>(null);
+
+  useEffect(() => { setBgm('title'); }, []);
 
   const canStart = companyName.trim() !== '' && presidentName.trim() !== '' && selectedId !== null;
   const selected = CHARACTERS.find(c => c.id === selectedId) ?? null;
