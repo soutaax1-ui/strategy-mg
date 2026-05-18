@@ -111,6 +111,7 @@ function PLView({ player, period }: { player: Company; period: number }) {
   }
 
   const isProfit = r.opProfit >= 0;
+  const mqRate   = r.revenue > 0 ? Math.round(r.grossProfit / r.revenue * 100) : 0;
 
   const rows = [
     { label: '売上高 (PQ)',   val: r.revenue,      color: 'border-mg-success', bold: true },
