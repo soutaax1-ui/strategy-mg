@@ -70,6 +70,10 @@ export function PresidentMascot({ characterId, expression, reaction, speech, exp
         alt={`${characterId} (${expression})`}
         className={`mascot-img ${animCls}`}
         draggable={false}
+        onError={(e) => {
+          const t = e.currentTarget;
+          if (!t.src.endsWith('mecha_normal.png')) t.src = '/characters/mecha_normal.png';
+        }}
       />
     </div>
   );

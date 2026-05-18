@@ -110,7 +110,7 @@ export function LobbyScreen() {
   }, [startGame, totalPeriods, difficulty, fillWithAi]);
 
   const isHost = room ? getSocket().id === room.hostId : false;
-  const canStart = isHost && (room?.players.length ?? 0) >= (fillWithAi ? 1 : 2);
+  const canStart = isHost && (room?.players.length ?? 0) >= (fillWithAi ? 1 : (room?.maxPlayers ?? 4));
 
   /* ── 接続インジケーター ── */
   const ConnBadge = () => (
