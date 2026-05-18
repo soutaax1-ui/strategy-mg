@@ -470,12 +470,7 @@ export function DashboardScreen() {
                       <div className="font-press text-7xl text-mg-border select-none">?</div>
                       <div className="font-dot text-[10px] text-mg-text-secondary text-center px-4 leading-relaxed">
                         第{gs.currentPeriod}期 R{Math.min(gs.round, 10)}<br />
-                        この期は何が起きる？
-                      </div>
-                      <div className="absolute bottom-3 left-0 right-0 flex justify-center">
-                        <span className="font-dot text-[9px] text-mg-border border border-mg-border/50 px-2 py-0.5 tracking-widest">
-                          TAP TO DRAW
-                        </span>
+                        何が起きるか…
                       </div>
                     </motion.div>
                   ) : (
@@ -493,15 +488,14 @@ export function DashboardScreen() {
                       {ui.phase === 'risk-trigger' ? (
                         /* リスクカード表面 */
                         <>
-                          <div className="bg-red-900/40 px-3 py-2 flex items-center justify-between border-b border-red-800/60">
+                          <div className="bg-red-900/40 px-3 py-2 flex items-center border-b border-red-800/60">
                             <span className="font-dot text-[10px] text-red-300">⚠️ リスクフェーズ</span>
-                            <span className="font-dot text-[9px] text-mg-text-secondary">RISK</span>
                           </div>
                           <div className="flex-1 flex flex-col items-center justify-center px-4 gap-3">
                             <AlertTriangle className="w-14 h-14 text-mg-danger" />
                             <div className="font-dot text-xl text-white">事件発生！</div>
                             <div className="font-noto text-xs text-red-300 text-center leading-relaxed">
-                              リスクカードを引いて<br />運命を確認してください
+                              運命のカードを引け
                             </div>
                           </div>
                           <div className="border-t border-red-800/60 px-3 py-2 text-[10px] text-red-400 font-noto">
