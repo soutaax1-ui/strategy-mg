@@ -273,6 +273,9 @@ export function DashboardScreen() {
   const [cardDrawn,   setCardDrawn]   = useState(false);
   const [modalOpen,   setModalOpen]   = useState(false);
   const [logTab,      setLogTab]      = useState<'all' | 'trade' | 'action' | 'event'>('all');
+  const [cardHistory, setCardHistory] = useState<Array<{
+    label: string; icon: string; colorKey: 'blue' | 'red' | 'green' | 'purple';
+  }>>([]);
 
   // ゲーム未初期化ならタイトルに戻す
   useEffect(() => {
@@ -310,6 +313,22 @@ export function DashboardScreen() {
       events.forEach(e => window.removeEventListener(e, resetIdleTimer));
     };
   }, [ui.phase, resetIdleTimer]);
+
+  // カード履歴: action-menu 遷移で意思決定カードを記録
+  useEffect(() => {
+    if (ui.phase === 'action-menu') {
+      setCardHistory(prev => [{ label: '意思決定', icon: '💼', colorKey: 'blue' as const }, ...prev].slice(0, 5));
+    }
+  }, [ui.phase]);
+
+  // カード履歴: risk-result 遷移でリスクカードを記録
+  useEffect(() => {
+    if (ui.phase === 'risk-result' && ui.drawnRiskCard) {
+      const rc = ui.drawnRiskCard;
+      const colorKey = rc.type === 'negative' ? 'red' as const : rc.type === 'positive' ? 'green' as const : 'purple' as const;
+      setCardHistory(prev => [{ label: rc.name, icon: rc.icon, colorKey }, ...prev].slice(0, 5));
+    }
+  }, [ui.phase, ui.drawnRiskCard]);
 
   // マルチ: 自分の会社番号のターンが「プレイヤーターン」
   const effectiveMyIdx = isMultiplayer ? myCompanyIdx : 0;
@@ -429,45 +448,83 @@ export function DashboardScreen() {
             <WaitingView playerName={currentCompany?.name ?? '...'} />
           )}
 
-          {/* Phase: draw-ready / action-menu */}
-          {(ui.phase === 'draw-ready' || ui.phase === 'action-menu') && isMyTurn && (
+          {/* Phase: draw-ready / action-menu / risk-trigger (カードエリア統合) */}
+          {(ui.phase === 'draw-ready' || ui.phase === 'action-menu' || ui.phase === 'risk-trigger') && isMyTurn && (
             <>
-              {/* Card flip */}
-              <div className="mb-10 relative w-[220px] h-[310px]">
+              {/* 3D カードフリップ */}
+              <div
+                className="mb-4 relative w-[220px] h-[310px]"
+                style={{ perspective: '1200px' }}
+              >
                 <AnimatePresence mode="wait">
                   {!cardDrawn ? (
+                    /* ── カード裏面 ── */
                     <motion.div key="back"
-                      className="absolute inset-0 bg-mg-elevated border-4 border-mg-border shadow-[8px_8px_0px_#000] flex items-center justify-center cursor-pointer hover:border-mg-cyan transition-colors"
-                      initial={{ rotateY: -90, opacity: 0 }}
-                      animate={{ rotateY: 0, opacity: 1 }}
-                      exit={{ rotateY: 90, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
+                      className="absolute inset-0 bg-mg-elevated border-4 border-mg-border shadow-[8px_8px_0px_#000] flex flex-col items-center justify-center cursor-pointer hover:border-mg-cyan transition-colors gap-4"
+                      initial={{ rotateY: 180 }}
+                      animate={{ rotateY: 0 }}
+                      exit={{ rotateY: -180 }}
+                      transition={{ duration: 0.55, ease: 'easeInOut' }}
                       onClick={handleDrawCard}
                     >
-                      <div className="font-press text-6xl text-mg-border">?</div>
+                      <div className="font-press text-7xl text-mg-border select-none">?</div>
+                      <div className="font-dot text-[10px] text-mg-text-secondary text-center px-4 leading-relaxed">
+                        第{gs.currentPeriod}期 R{Math.min(gs.round, 10)}<br />
+                        この期は何が起きる？
+                      </div>
+                      <div className="absolute bottom-3 left-0 right-0 flex justify-center">
+                        <span className="font-dot text-[9px] text-mg-border border border-mg-border/50 px-2 py-0.5 tracking-widest">
+                          TAP TO DRAW
+                        </span>
+                      </div>
                     </motion.div>
                   ) : (
+                    /* ── カード表面 ── */
                     <motion.div key="front"
-                      className={`absolute inset-0 border-4 shadow-[8px_8px_0px_#000] flex flex-col items-center p-4 ${
-                        ui.drawnCard?.type === 'risk-trigger'
+                      className={`absolute inset-0 border-4 shadow-[8px_8px_0px_#000] flex flex-col overflow-hidden ${
+                        ui.phase === 'risk-trigger'
                           ? 'bg-red-950 border-mg-danger'
-                          : 'bg-white border-mg-gold'
+                          : 'bg-[#071428] border-blue-500'
                       }`}
-                      initial={{ rotateY: -90, opacity: 0 }}
-                      animate={{ rotateY: 0, opacity: 1 }}
-                      transition={{ duration: 0.3 }}
+                      initial={{ rotateY: -180 }}
+                      animate={{ rotateY: 0 }}
+                      transition={{ duration: 0.55, ease: 'easeInOut' }}
                     >
-                      {ui.drawnCard?.type === 'risk-trigger' ? (
+                      {ui.phase === 'risk-trigger' ? (
+                        /* リスクカード表面 */
                         <>
-                          <AlertTriangle className="w-16 h-16 text-mg-danger mb-3" />
-                          <h3 className="font-dot text-xl text-mg-danger">リスクカード</h3>
-                          <p className="font-noto text-sm text-red-300 text-center mt-2">リスクデッキから1枚引きます</p>
+                          <div className="bg-red-900/40 px-3 py-2 flex items-center justify-between border-b border-red-800/60">
+                            <span className="font-dot text-[10px] text-red-300">⚠️ リスクフェーズ</span>
+                            <span className="font-dot text-[9px] text-mg-text-secondary">RISK</span>
+                          </div>
+                          <div className="flex-1 flex flex-col items-center justify-center px-4 gap-3">
+                            <AlertTriangle className="w-14 h-14 text-mg-danger" />
+                            <div className="font-dot text-xl text-white">事件発生！</div>
+                            <div className="font-noto text-xs text-red-300 text-center leading-relaxed">
+                              リスクカードを引いて<br />運命を確認してください
+                            </div>
+                          </div>
+                          <div className="border-t border-red-800/60 px-3 py-2 text-[10px] text-red-400 font-noto">
+                            → リスクカードを引く
+                          </div>
                         </>
                       ) : (
+                        /* 意思決定カード表面 */
                         <>
-                          <TrendingUp className="w-14 h-14 text-mg-gold mb-3" />
-                          <h3 className="font-dot text-2xl text-slate-800">意思決定カード</h3>
-                          <p className="font-noto text-sm text-gray-600 text-center mt-2">行動を1つ選んでください</p>
+                          <div className="bg-blue-900/40 px-3 py-2 flex items-center justify-between border-b border-blue-800/60">
+                            <span className="font-dot text-[10px] text-blue-300">💼 意思決定フェーズ</span>
+                            <span className="font-dot text-[9px] text-mg-text-secondary">ACT</span>
+                          </div>
+                          <div className="flex-1 flex flex-col items-center justify-center px-4 gap-3">
+                            <TrendingUp className="w-14 h-14 text-blue-400" />
+                            <div className="font-dot text-xl text-white">意思決定</div>
+                            <div className="font-noto text-xs text-blue-300 text-center leading-relaxed">
+                              経営アクションを選択して<br />会社を強化してください
+                            </div>
+                          </div>
+                          <div className="border-t border-blue-800/60 px-3 py-2 text-[10px] text-blue-400 font-noto">
+                            → 行動を選択する
+                          </div>
                         </>
                       )}
                     </motion.div>
@@ -475,35 +532,48 @@ export function DashboardScreen() {
                 </AnimatePresence>
               </div>
 
+              {/* 過去カード履歴サムネイル */}
+              {cardHistory.length > 0 && (
+                <div className="flex gap-1.5 mb-4">
+                  {cardHistory.map((ch, i) => (
+                    <div
+                      key={i}
+                      title={ch.label}
+                      className={`w-8 h-11 flex flex-col items-center justify-center border text-sm ${
+                        ch.colorKey === 'blue'   ? 'border-blue-500   bg-blue-900/40'   :
+                        ch.colorKey === 'red'    ? 'border-mg-danger  bg-red-900/40'    :
+                        ch.colorKey === 'green'  ? 'border-mg-success bg-green-900/40'  :
+                        'border-mg-border bg-mg-elevated/40'
+                      } ${i === 0 ? 'opacity-100' : i === 1 ? 'opacity-60' : 'opacity-30'}`}
+                    >
+                      <span>{ch.icon}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* アクションボタン */}
               {!cardDrawn ? (
                 <Button size="lg" onClick={handleDrawCard} className="animate-bounce">
                   カードを引く
                 </Button>
-              ) : ui.drawnCard?.type === 'decision' ? (
+              ) : ui.phase === 'action-menu' ? (
                 <Button size="lg" onClick={() => setModalOpen(true)}
-                  className="bg-mg-gold text-[#000] shadow-[4px_4px_0px_#000,0_0_15px_rgba(255,186,8,0.5)]">
-                  行動を選択
+                  className="bg-blue-600 text-white border-blue-400 shadow-[4px_4px_0px_#000,0_0_18px_rgba(59,130,246,0.45)] hover:bg-blue-500">
+                  💼 行動を選択
                 </Button>
-              ) : (
-                <Button size="lg" variant="secondary" onClick={() => {
-                  // リスクカードは risk-trigger フェーズへ遷移済み (DRAW_MAIN_CARD が処理)
-                  // 実際には phase='risk-trigger' に切り替わっているのでここには来ない想定
-                }}>
-                  リスクカードを引く
+              ) : ui.phase === 'risk-trigger' ? (
+                <Button size="lg" onClick={() => {
+                  playSfx('risk');
+                  const { card, deck } = drawFromRiskDeck(gs.riskDeck);
+                  const target = ui.riskTarget ?? player;
+                  mpDispatch({ type: 'APPLY_RISK_CARD', company: target, card, remainingRiskDeck: deck });
+                }} className="bg-mg-danger text-white border-red-700 shadow-[4px_4px_0px_#000,0_0_18px_rgba(255,51,102,0.45)] hover:bg-red-600">
+                  ⚠️ リスクカードを引く
                 </Button>
-              )}
+              ) : null}
             </>
           )}
-
-          {/* Phase: risk-trigger */}
-            {ui.phase === 'risk-trigger' && isMyTurn && (
-              <RiskTriggerView onDraw={() => {
-                playSfx('risk');
-                const { card, deck } = drawFromRiskDeck(gs.riskDeck);
-                const target = ui.riskTarget ?? player;
-                mpDispatch({ type: 'APPLY_RISK_CARD', company: target, card, remainingRiskDeck: deck });
-              }} />
-            )}
 
           {/* Phase: risk-result */}
           {ui.phase === 'risk-result' && ui.drawnRiskCard && isMyTurn && (
@@ -748,33 +818,36 @@ function CompanyCard({ company, isActive, isMyCompany, rank }: { company: Compan
   );
 }
 
-/* ===== Risk Trigger View ===== */
-function RiskTriggerView({ onDraw }: { onDraw: () => void }) {
-  return (
-    <div className="text-center">
-      <div className="text-6xl mb-6">⚠️</div>
-      <div className="font-dot text-2xl text-mg-danger mb-4">リスクカードを引いた！</div>
-      <div className="font-noto text-mg-text-secondary mb-8">リスクデッキから1枚引いてください</div>
-      <Button size="lg" onClick={onDraw} className="bg-mg-danger text-white shadow-[6px_6px_0px_#000]">
-        リスクカードを引く
-      </Button>
-    </div>
-  );
-}
-
 /* ===== Risk Result View ===== */
 function RiskResultView({ card, onContinue }: { card: any; onContinue: () => void }) {
-  const bgClass = card.type === 'negative' ? 'bg-red-950 border-mg-danger' :
-                  card.type === 'positive' ? 'bg-green-950 border-mg-success' :
-                  'bg-mg-elevated border-mg-border';
+  const theme = card.type === 'negative'
+    ? { bg: 'bg-red-950',     border: 'border-mg-danger',  hdr: 'bg-red-900/40 border-red-800/60',   label: 'text-red-300',    tag: '⚠️ 事件'   }
+    : card.type === 'positive'
+    ? { bg: 'bg-green-950',   border: 'border-mg-success', hdr: 'bg-green-900/40 border-green-800/60', label: 'text-green-300', tag: '✨ ボーナス' }
+    : { bg: 'bg-[#100a28]',   border: 'border-mg-border',  hdr: 'bg-[#1e1040]/40 border-[#3a2860]/60', label: 'text-purple-300', tag: '🔮 その他' };
+
   return (
-    <div className="text-center max-w-sm">
-      <motion.div className={`border-4 p-8 mb-6 ${bgClass}`}
-        initial={{ rotateY: -90 }} animate={{ rotateY: 0 }} transition={{ duration: 0.3 }}>
-        <div className="text-6xl mb-3">{card.icon}</div>
-        <div className="font-dot text-2xl text-white mb-2">{card.name}</div>
-        <div className="font-noto text-sm text-mg-text-secondary">{card.desc}</div>
-      </motion.div>
+    <div className="text-center max-w-sm w-full px-4">
+      <div style={{ perspective: '1200px' }}>
+        <motion.div
+          className={`border-4 ${theme.bg} ${theme.border} shadow-[8px_8px_0px_#000] overflow-hidden flex flex-col mb-6`}
+          initial={{ rotateY: 180 }}
+          animate={{ rotateY: 0 }}
+          transition={{ duration: 0.55, ease: 'easeOut' }}
+        >
+          <div className={`px-4 py-2 flex items-center justify-between border-b ${theme.hdr}`}>
+            <span className={`font-dot text-[10px] ${theme.label}`}>{theme.tag}</span>
+            <span className="font-dot text-[9px] text-mg-text-secondary">リスクカード</span>
+          </div>
+          <div className="py-8 px-6 flex flex-col items-center gap-4">
+            <div className="text-5xl">{card.icon}</div>
+            <div className="font-dot text-2xl text-white">{card.name}</div>
+            <div className="font-noto text-sm text-mg-text-secondary text-center leading-relaxed">
+              {card.desc}
+            </div>
+          </div>
+        </motion.div>
+      </div>
       <Button size="lg" onClick={onContinue} className="shadow-[4px_4px_0px_#000]">
         次へ進む
       </Button>
