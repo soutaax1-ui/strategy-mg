@@ -16,6 +16,20 @@
   -webkit-user-drag: none;
 }
 
+/* ── 全表情重ね合わせコンテナ (opacity 切替方式) ── */
+.mascot-wrap {
+  position: relative;
+  height: 25vh;
+  max-height: 240px;
+  min-height: 120px;
+  width: 25vh;
+  max-width: 240px;
+  min-width: 120px;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 /* ============================================================
  * Idle keyframes (キャラ別)
  * ============================================================ */
