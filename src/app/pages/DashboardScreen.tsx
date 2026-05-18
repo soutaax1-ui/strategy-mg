@@ -3,8 +3,11 @@ import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Package, Factory, Users, Cpu, Beaker, MapPin,
-  AlertTriangle, TrendingUp, ChevronRight, Clock, Bot,
+  AlertTriangle, TrendingUp, ChevronRight, Clock, Bot, Megaphone,
 } from 'lucide-react';
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
+} from 'recharts';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ActionModal } from '../components/ActionModal';
@@ -18,6 +21,10 @@ import { PresidentMascot } from '../components/PresidentMascot';
 
 const COLOR_MAP: Record<string, string> = {
   player: 'cyan', alpha: 'pink', beta: 'gold', gamma: 'lime',
+};
+
+const CHART_COLORS: Record<string, string> = {
+  player: '#00d9ff', alpha: '#ff4d8d', beta: '#ffba08', gamma: '#80ed99',
 };
 const TEXT_COLOR: Record<string, string> = {
   player: 'text-mg-cyan', alpha: 'text-mg-pink', beta: 'text-mg-gold', gamma: 'text-mg-lime',
@@ -142,6 +149,120 @@ function CityShareCards({ gs }: { gs: GameState }) {
   );
 }
 
+/* ── 純資産推移グラフ ── */
+function EquityChart({ gs, playerIdx }: { gs: GameState; playerIdx: number }) {
+  const maxLen = Math.max(...gs.companies.map(c => c.history.length));
+  if (maxLen === 0) {
+    return (
+      <div className="px-3 py-2 text-[10px] text-mg-text-secondary font-dot">
+        期末後に表示
+      </div>
+    );
+  }
+
+  const data = Array.from({ length: maxLen }, (_, i) => {
+    const point: Record<string, number | string> = { period: `${i + 1}期` };
+    gs.companies.forEach(c => {
+      if (i < c.history.length) point[c.id] = c.history[i];
+    });
+    return point;
+  });
+
+  return (
+    <div className="px-2 pt-2 pb-1 border-b-2 border-mg-border">
+      <div className="font-dot text-[10px] text-mg-text-secondary mb-1">純資産推移 (万円)</div>
+      <ResponsiveContainer width="100%" height={120}>
+        <LineChart data={data} margin={{ top: 4, right: 6, left: -18, bottom: 0 }}>
+          <XAxis dataKey="period" tick={{ fontSize: 8, fill: '#666' }} interval={0} />
+          <YAxis tick={{ fontSize: 8, fill: '#666' }} />
+          <Tooltip
+            contentStyle={{ background: '#1a1830', border: '1px solid #333', fontSize: 10 }}
+            labelStyle={{ color: '#aaa' }}
+            formatter={(v: number) => [`${v}万`, '']}
+          />
+          <Legend
+            iconType="line"
+            wrapperStyle={{ fontSize: 9, paddingTop: 2 }}
+          />
+          {gs.companies.map((c, i) => (
+            <Line
+              key={c.id}
+              type="monotone"
+              dataKey={c.id}
+              name={c.name}
+              stroke={CHART_COLORS[c.id] ?? '#888'}
+              strokeWidth={i === playerIdx ? 2.5 : 1.2}
+              dot={false}
+              connectNulls
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+/* ── リソースカード (自社) ── */
+function ResourceCards({ player }: { player: Company }) {
+  const cap = prodCap(player);
+  const mfg = player.staffRoles.manufacturing;
+  const machineCount = player.smallMachines + player.largeMachines;
+  const invPct = cap > 0 ? Math.min(100, Math.round(player.productInventory / cap * 100)) : 0;
+
+  return (
+    <div className="shrink-0 flex gap-1.5 px-3 py-1.5 border-b-2 border-mg-border bg-mg-base/30">
+      {/* 在庫 */}
+      <div className="flex flex-col border border-mg-border bg-mg-elevated/60 px-2 py-1.5 flex-1 min-w-0">
+        <div className="flex items-center gap-1 mb-0.5">
+          <Package size={9} className="text-mg-text-secondary shrink-0" />
+          <span className="font-dot text-[9px] text-mg-text-secondary truncate">在庫</span>
+        </div>
+        <span className="font-mono font-bold text-xs text-white">{player.productInventory}個</span>
+        <div className="mt-1 h-1 bg-mg-border w-full">
+          <div className="h-full bg-mg-cyan" style={{ width: `${invPct}%` }} />
+        </div>
+        <span className="font-mono text-[8px] text-mg-text-secondary leading-tight">/{cap}個</span>
+      </div>
+
+      {/* 生産能力 */}
+      <div className="flex flex-col border border-mg-border bg-mg-elevated/60 px-2 py-1.5 flex-1 min-w-0">
+        <div className="flex items-center gap-1 mb-0.5">
+          <Factory size={9} className="text-mg-text-secondary shrink-0" />
+          <span className="font-dot text-[9px] text-mg-text-secondary truncate">生産能力</span>
+        </div>
+        <span className="font-mono font-bold text-xs text-white">{cap}個/期</span>
+        <span className="font-mono text-[8px] text-mg-text-secondary leading-tight">
+          社員{mfg.employees}×2{machineCount > 0 ? ` + 機械${machineCount}台` : ''}
+        </span>
+      </div>
+
+      {/* 広告 */}
+      <div className="flex flex-col border border-mg-border bg-mg-elevated/60 px-2 py-1.5 flex-1 min-w-0">
+        <div className="flex items-center gap-1 mb-0.5">
+          <Megaphone size={9} className="text-mg-text-secondary shrink-0" />
+          <span className="font-dot text-[9px] text-mg-text-secondary truncate">チラシ</span>
+        </div>
+        <span className="font-mono font-bold text-xs text-white">{player.flyerChips}枚</span>
+        <span className="font-mono text-[8px] text-mg-text-secondary leading-tight">
+          今期 {player.periodAdSpend}万円
+        </span>
+      </div>
+
+      {/* 社員 */}
+      <div className="flex flex-col border border-mg-border bg-mg-elevated/60 px-2 py-1.5 flex-1 min-w-0">
+        <div className="flex items-center gap-1 mb-0.5">
+          <Users size={9} className="text-mg-text-secondary shrink-0" />
+          <span className="font-dot text-[9px] text-mg-text-secondary truncate">人員</span>
+        </div>
+        <span className="font-mono font-bold text-xs text-white">{player.employees + player.partTimers}名</span>
+        <span className="font-mono text-[8px] text-mg-text-secondary leading-tight">
+          正{player.employees}/パ{player.partTimers}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardScreen() {
   const navigate  = useNavigate();
   const { gs, ui, dispatch, triggerMascotEvent } = useGame();
@@ -151,6 +272,7 @@ export function DashboardScreen() {
 
   const [cardDrawn,   setCardDrawn]   = useState(false);
   const [modalOpen,   setModalOpen]   = useState(false);
+  const [logTab,      setLogTab]      = useState<'all' | 'trade' | 'action' | 'event'>('all');
 
   // ゲーム未初期化ならタイトルに戻す
   useEffect(() => {
@@ -280,6 +402,9 @@ export function DashboardScreen() {
             <CityShareCards gs={gs} />
           </div>
 
+          {/* リソースカード */}
+          <ResourceCards player={player} />
+
           {/* ゲームコンテンツ (flex-1 に収める) */}
           <div className="flex-1 flex flex-col items-center justify-center relative">
 
@@ -397,23 +522,66 @@ export function DashboardScreen() {
           </div>{/* end: game content */}
         </div>{/* end: center column */}
 
-        {/* Right: Game log */}
+        {/* Right: Equity chart + Game log */}
         <div className="w-[300px] border-l-2 border-mg-border bg-mg-base flex flex-col">
-          <div className="h-12 border-b-2 border-mg-border flex items-center px-4 font-dot text-lg bg-mg-surface">
-            ゲームログ
+          {/* 純資産推移グラフ */}
+          <EquityChart gs={gs} playerIdx={effectiveMyIdx} />
+
+          {/* ゲームログ ヘッダー + タブ */}
+          <div className="shrink-0 border-b-2 border-mg-border bg-mg-surface">
+            <div className="h-10 flex items-center px-4 font-dot text-sm">
+              ゲームログ
+            </div>
+            <div className="flex border-t border-mg-border">
+              {([
+                { id: 'all',    label: 'すべて' },
+                { id: 'trade',  label: '取引' },
+                { id: 'action', label: '行動' },
+                { id: 'event',  label: '事件' },
+              ] as const).map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setLogTab(tab.id)}
+                  className={`flex-1 py-1 font-dot text-[10px] transition-colors ${
+                    logTab === tab.id
+                      ? 'bg-mg-elevated text-mg-cyan border-b-2 border-mg-cyan'
+                      : 'text-mg-text-secondary hover:text-white'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
+
+          {/* ログリスト */}
           <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
-            {gs.gameLog.slice(0, 10).map((entry, i) => (
-              <div key={entry.id ?? i} className={`p-2 border text-xs font-noto ${
-                entry.cls === 'log-player' ? 'border-mg-cyan bg-mg-cyan/10 text-mg-cyan' :
-                entry.cls === 'log-risk'   ? 'border-mg-danger bg-mg-danger/10 text-mg-danger' :
-                entry.cls === 'log-good'   ? 'border-mg-success bg-mg-success/10 text-mg-success' :
-                'border-mg-border bg-mg-elevated text-mg-text-secondary'
-              }`}>
-                {entry.text}
-              </div>
-            ))}
-            {gs.gameLog.length === 0 && (
+            {gs.gameLog
+              .filter(entry => {
+                if (logTab === 'all')    return true;
+                if (logTab === 'trade')  return entry.cls === 'log-player';
+                if (logTab === 'event')  return entry.cls === 'log-risk';
+                if (logTab === 'action') return entry.cls === 'log-good' || entry.cls === '';
+                return true;
+              })
+              .slice(0, 20)
+              .map((entry, i) => (
+                <div key={entry.id ?? i} className={`p-2 border text-xs font-noto ${
+                  entry.cls === 'log-player' ? 'border-mg-cyan bg-mg-cyan/10 text-mg-cyan' :
+                  entry.cls === 'log-risk'   ? 'border-mg-danger bg-mg-danger/10 text-mg-danger' :
+                  entry.cls === 'log-good'   ? 'border-mg-success bg-mg-success/10 text-mg-success' :
+                  'border-mg-border bg-mg-elevated text-mg-text-secondary'
+                }`}>
+                  {entry.text}
+                </div>
+              ))}
+            {gs.gameLog.filter(entry => {
+              if (logTab === 'all')    return true;
+              if (logTab === 'trade')  return entry.cls === 'log-player';
+              if (logTab === 'event')  return entry.cls === 'log-risk';
+              if (logTab === 'action') return entry.cls === 'log-good' || entry.cls === '';
+              return true;
+            }).length === 0 && (
               <div className="text-xs text-mg-text-secondary font-noto p-2">ログはまだありません</div>
             )}
           </div>
