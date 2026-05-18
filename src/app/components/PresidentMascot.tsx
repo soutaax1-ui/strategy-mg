@@ -18,6 +18,14 @@ export function PresidentMascot({ characterId, expression, reaction, speech, exp
   const [visibleSpeech, setVisibleSpeech] = useState<string | undefined>(undefined);
   const firedEventIdRef = useRef<number | undefined>(undefined);
 
+  // characterId が変わったら全表情を先読みして即時表示を保証する
+  useEffect(() => {
+    (['normal', 'joy', 'anger', 'sadness', 'surprise'] as const).forEach(exp => {
+      const img = new Image();
+      img.src = `/characters/${characterId}_${exp}.png`;
+    });
+  }, [characterId]);
+
   // speech / expiresAt が変化したら表示し、期限切れで idle リセット
   useEffect(() => {
     if (!speech) { setVisibleSpeech(undefined); return; }
