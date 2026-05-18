@@ -23,6 +23,125 @@ const TEXT_COLOR: Record<string, string> = {
   player: 'text-mg-cyan', alpha: 'text-mg-pink', beta: 'text-mg-gold', gamma: 'text-mg-lime',
 };
 
+/* ── 順位バッジスタイル ── */
+const RANK_BADGE: Record<number, string> = {
+  1: 'bg-mg-gold   text-[#000] border-mg-gold',
+  2: 'bg-[#B0B8C8] text-[#000] border-[#B0B8C8]',
+  3: 'bg-[#C47E32] text-[#000] border-[#C47E32]',
+  4: 'bg-mg-elevated text-mg-text-secondary border-mg-border',
+};
+
+/* ── 前期比ステータス判定 ── */
+function getCompanyStatus(company: Company) {
+  const h = company.history;
+  if (h.length < 1) return null;
+
+  let pct: number;
+  if (h.length >= 2) {
+    const d1 = h[h.length - 1] - h[h.length - 2];
+    const d2 = h.length >= 3 ? h[h.length - 2] - h[h.length - 3] : null;
+    pct = d2 !== null && Math.abs(d2) > 0.1
+      ? (d1 - d2) / Math.abs(d2) * 100
+      : d1 > 0 ? 30 : d1 < 0 ? -30 : 0;
+  } else {
+    const op = company.result?.opProfit ?? 0;
+    pct = op > 0 ? 25 : op < 0 ? -25 : 0;
+  }
+
+  if (pct >= 20)  return { label: '絶好調', stars: '★4.5', cls: 'text-mg-success  border-mg-success  bg-mg-success/10'  };
+  if (pct >= 0)   return { label: '好調',   stars: '★3.5', cls: 'text-blue-400   border-blue-400   bg-blue-400/10'   };
+  if (pct >= -20) return { label: '安定',   stars: '★3.0', cls: 'text-yellow-400 border-yellow-400 bg-yellow-400/10' };
+  return           { label: '低調',   stars: '★1.5', cls: 'text-mg-danger   border-mg-danger   bg-mg-danger/10'  };
+}
+
+/* ── KPI カード (自社 1期前比) ── */
+function KpiCards({ player, gs }: { player: Company; gs: GameState }) {
+  const r  = player.result;
+  const h  = player.history;
+  const pq = r?.revenue ?? 0;
+  const g  = r?.opProfit ?? 0;
+
+  const totalSold  = gs.companies.reduce((s, c) => s + (c.result?.soldQty ?? 0), 0);
+  const playerSold = r?.soldQty ?? 0;
+  const share      = totalSold > 0 ? Math.round(playerSold / totalSold * 100) : 0;
+
+  const gTrend: number | null = (() => {
+    if (h.length < 3) return null;
+    const d1 = h[h.length - 1] - h[h.length - 2];
+    const d2 = h[h.length - 2] - h[h.length - 3];
+    return Math.abs(d2) > 0.1 ? Math.round((d1 - d2) / Math.abs(d2) * 100) : null;
+  })();
+
+  return (
+    <div className="flex gap-1.5 shrink-0">
+      <div className="flex flex-col border border-mg-border bg-mg-elevated/60 px-2.5 py-1.5 min-w-[72px]">
+        <div className="flex items-center gap-1">
+          <TrendingUp size={10} className="text-mg-text-secondary shrink-0" />
+          <span className="font-dot text-[10px] text-mg-text-secondary">売上 PQ</span>
+        </div>
+        <span className="font-mono font-bold text-sm text-white">{pq > 0 ? `${pq}万` : '—'}</span>
+      </div>
+
+      <div className="flex flex-col border border-mg-border bg-mg-elevated/60 px-2.5 py-1.5 min-w-[72px]">
+        <div className="flex items-center gap-1">
+          <TrendingUp size={10} className="text-mg-text-secondary shrink-0" />
+          <span className="font-dot text-[10px] text-mg-text-secondary">利益 G</span>
+        </div>
+        <span className={`font-mono font-bold text-sm ${g > 0 ? 'text-mg-success' : g < 0 ? 'text-mg-danger' : 'text-white'}`}>
+          {r ? `${g >= 0 ? '+' : ''}${g}万` : '—'}
+        </span>
+        {gTrend !== null && (
+          <span className={`font-mono text-[10px] leading-none ${gTrend >= 0 ? 'text-mg-success' : 'text-mg-danger'}`}>
+            {gTrend >= 0 ? '↑' : '↓'}{Math.abs(gTrend)}%
+          </span>
+        )}
+      </div>
+
+      <div className="flex flex-col border border-mg-border bg-mg-elevated/60 px-2.5 py-1.5 min-w-[72px]">
+        <div className="flex items-center gap-1">
+          <MapPin size={10} className="text-mg-text-secondary shrink-0" />
+          <span className="font-dot text-[10px] text-mg-text-secondary">市場シェア</span>
+        </div>
+        <span className="font-mono font-bold text-sm text-mg-cyan">{share > 0 ? `${share}%` : '—'}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ── 都市別シェアカード ── */
+function CityShareCards({ gs }: { gs: GameState }) {
+  return (
+    <div className="flex gap-1.5 flex-1 min-w-0 overflow-hidden">
+      {CITIES.map(city => {
+        const rem        = gs.cityVols[city.id] ?? 0;
+        const consumed   = Math.max(0, city.vol - rem);
+        const sold       = gs.playerHistory?.citySales?.[city.id as keyof typeof gs.playerHistory.citySales] ?? 0;
+        const share      = consumed > 0 ? Math.round((sold as number) / consumed * 100) : 0;
+        const isLeading  = (sold as number) > 0 && share >= 50;
+
+        return (
+          <div
+            key={city.id}
+            className={`flex flex-col items-center border px-1.5 py-1 min-w-[50px] shrink-0 ${
+              isLeading
+                ? 'border-mg-cyan bg-mg-cyan/15'
+                : (sold as number) > 0
+                ? 'border-mg-border bg-mg-elevated/60'
+                : 'border-mg-border/30 bg-mg-elevated/20 opacity-40'
+            }`}
+          >
+            <span className="font-dot text-[9px] text-mg-text-secondary leading-none">{city.name}</span>
+            <span className={`font-mono text-sm font-bold leading-tight ${isLeading ? 'text-mg-cyan' : 'text-white'}`}>
+              {share}%
+            </span>
+            <span className="font-mono text-[9px] text-mg-text-secondary leading-none">{rem}残</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function DashboardScreen() {
   const navigate  = useNavigate();
   const { gs, ui, dispatch, triggerMascotEvent } = useGame();
@@ -74,6 +193,13 @@ export function DashboardScreen() {
   const effectiveMyIdx = isMultiplayer ? myCompanyIdx : 0;
   const player = gs?.companies[effectiveMyIdx] ?? fallbackPlayer;
   if (!gs || !player) return null;
+
+  // 自己資本で順位計算 (毎 render で最新値)
+  const rankMap = new Map(
+    [...gs.companies]
+      .sort((a, b) => (b.capital + b.retainedEarnings) - (a.capital + a.retainedEarnings))
+      .map((c, i) => [c.id, i + 1])
+  );
 
   const currentCompany = gs.companies[gs.playerIdx];
   const isMyTurn       = gs.playerIdx === effectiveMyIdx;
@@ -141,12 +267,21 @@ export function DashboardScreen() {
         {/* Left: Company cards */}
         <div className="w-[260px] border-r-2 border-mg-border bg-mg-base p-3 flex flex-col gap-3 overflow-y-auto">
           {gs.companies.map((company, i) => (
-            <CompanyCard key={company.id} company={company} isActive={i === gs.playerIdx} isMyCompany={i === effectiveMyIdx} />
+            <CompanyCard key={company.id} company={company} isActive={i === gs.playerIdx} isMyCompany={i === effectiveMyIdx} rank={rankMap.get(company.id) ?? 4} />
           ))}
         </div>
 
-        {/* Center: Card draw area */}
-        <div className="flex-1 flex flex-col items-center justify-center bg-[#131122] relative">
+        {/* Center: KPI strip + Card draw area */}
+        <div className="flex-1 flex flex-col bg-[#131122] relative overflow-hidden">
+          {/* KPI + 都市シェア */}
+          <div className="shrink-0 flex items-stretch gap-2 px-3 py-1.5 border-b-2 border-mg-border bg-mg-base/50">
+            <KpiCards player={player} gs={gs} />
+            <div className="w-px bg-mg-border shrink-0" />
+            <CityShareCards gs={gs} />
+          </div>
+
+          {/* ゲームコンテンツ (flex-1 に収める) */}
+          <div className="flex-1 flex flex-col items-center justify-center relative">
 
           {/* Phase: period-start */}
           {ui.phase === 'period-start' && isMyTurn && (
@@ -259,7 +394,8 @@ export function DashboardScreen() {
               enabled={!isMultiplayer || isHost}
             />
           )}
-        </div>
+          </div>{/* end: game content */}
+        </div>{/* end: center column */}
 
         {/* Right: Game log */}
         <div className="w-[300px] border-l-2 border-mg-border bg-mg-base flex flex-col">
@@ -376,13 +512,19 @@ function PeriodStartView({ gs, player, dispatch }: { gs: GameState; player: Comp
 }
 
 /* ===== Company Card ===== */
-function CompanyCard({ company, isActive, isMyCompany }: { company: Company; isActive: boolean; isMyCompany: boolean }) {
-  const cap = prodCap(company);
+function CompanyCard({ company, isActive, isMyCompany, rank }: { company: Company; isActive: boolean; isMyCompany: boolean; rank: number }) {
+  const cap    = prodCap(company);
+  const status = getCompanyStatus(company);
   return (
     <Card glowColor={COLOR_MAP[company.id] as any} className={`relative text-xs ${isActive ? 'ring-2 ring-mg-gold' : ''}`}>
       {isActive && (
         <div className="absolute -left-2 top-1/2 w-3 h-3 bg-mg-gold rotate-45 -translate-y-1/2 border border-[#000]" />
       )}
+      {/* 順位バッジ */}
+      <div className={`absolute -top-2 -right-2 w-5 h-5 flex items-center justify-center border-2 text-[10px] font-dot ${RANK_BADGE[rank] ?? RANK_BADGE[4]}`}>
+        {rank}
+      </div>
+
       <div className={`font-dot text-sm border-b-2 border-mg-border pb-1 mb-2 flex items-center gap-1 ${TEXT_COLOR[company.id] ?? ''}`}>
         {company.type === 'ai' && <Bot size={11} className="text-mg-text-secondary shrink-0" />}
         <span className="truncate">{company.name}</span>
@@ -426,6 +568,14 @@ function CompanyCard({ company, isActive, isMyCompany }: { company: Company; isA
         {company.effects.matDiscount && <span className="text-mg-cyan text-xs">🎁割引</span>}
         {company.brokenMachines > 0  && <span className="text-mg-danger text-xs">⚙️故障</span>}
       </div>
+
+      {/* ステータスラベル */}
+      {status && (
+        <div className={`mt-2 border text-[10px] font-dot px-1.5 py-0.5 flex justify-between items-center ${status.cls}`}>
+          <span>{status.label}</span>
+          <span className="text-[9px]">{status.stars}</span>
+        </div>
+      )}
     </Card>
   );
 }
