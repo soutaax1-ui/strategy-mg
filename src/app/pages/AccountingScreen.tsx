@@ -110,13 +110,6 @@ function PLView({ player, period }: { player: Company; period: number }) {
     );
   }
 
-  const mqRate  = r.revenue > 0 ? Math.round(r.grossProfit / r.revenue * 100) : 0;
-  const vqPct   = r.revenue > 0 ? Math.max(5, Math.min(90, Math.round(r.cogs / r.revenue * 100))) : 55;
-  const mqPct   = 100 - vqPct;
-  const fInMq   = r.grossProfit > 0
-    ? Math.min(95, Math.round(r.fixedCosts / r.grossProfit * 100))
-    : (r.fixedCosts > 0 ? 100 : 0);
-  const gInMq   = Math.max(0, 100 - fInMq);
   const isProfit = r.opProfit >= 0;
 
   const rows = [
@@ -166,68 +159,147 @@ function PLView({ player, period }: { player: Company; period: number }) {
       {/* MQ Chart */}
       <Card className="w-1/2 flex flex-col h-full bg-mg-base p-6">
         <h2 className="font-dot text-lg mb-4 border-b-2 border-mg-border pb-2">MQ会計図</h2>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="w-full max-w-[360px]">
-            {/* PQ row */}
-            <div className="flex gap-1.5 mb-1.5 h-[140px]">
-              <div
-                className="bg-mg-danger/20 border-2 border-mg-danger flex flex-col items-center justify-center shadow-[4px_4px_0px_#000]"
-                style={{ width: `${vqPct}%` }}
-              >
-                <span className="font-dot text-mg-danger text-sm">VQ</span>
-                <span className="font-mono text-mg-danger text-xs">{fmt(r.cogs)}</span>
-              </div>
-              <div
-                className="bg-mg-gold/20 border-2 border-mg-gold flex flex-col items-center justify-center shadow-[4px_4px_0px_#000]"
-                style={{ width: `${mqPct}%` }}
-              >
-                <span className="font-dot text-mg-gold font-bold">MQ</span>
-                <span className="font-mono text-mg-gold text-xs">{fmt(r.grossProfit)}</span>
-              </div>
+        <div className="flex-1 overflow-y-auto flex items-center justify-center py-2">
+          <MQAccountingChart r={r} />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ===== MQ Accounting Chart ===== */
+function MQAccountingChart({ r }: { r: PeriodResult }) {
+  const pq = r.revenue;
+  const vq = r.cogs;
+  const mq = r.grossProfit;
+  const f  = r.fixedCosts;
+  const g  = r.opProfit;
+
+  const mqRate   = pq > 0 ? Math.round(mq / pq * 100) : 0;
+  const isProfit = g >= 0;
+
+  // Pixel heights
+  const CHART_H = 260;
+  const GAP     = 6; // gap-1.5 = 6px
+
+  const safeVq = Math.max(0, vq);
+  const safeMq = Math.max(0, mq);
+  const sum    = safeVq + safeMq || 1;
+
+  const rawVqH = Math.round((CHART_H - GAP) * safeVq / sum);
+  const vqH    = Math.max(28, Math.min(CHART_H - GAP - 28, rawVqH));
+  const mqH    = CHART_H - GAP - vqH;
+
+  // F and G heights within the F/G column
+  const innerMqH = isProfit && g > 0 ? mqH - GAP : mqH;
+  const fHInMq   = isProfit && g > 0
+    ? Math.min(innerMqH - 8, Math.round((f / mq) * innerMqH))
+    : mqH;
+  const gHInMq   = isProfit && g > 0 ? innerMqH - fHInMq : 0;
+
+  // Overflow when G < 0 (F exceeds MQ area)
+  const overflowH = !isProfit && mq > 0
+    ? Math.max(32, Math.round((Math.abs(g) / mq) * mqH))
+    : 0;
+
+  const smallMq = mqH < 64;
+
+  return (
+    <div className="w-full max-w-[380px]">
+      {/* Main chart */}
+      <div className="flex gap-1.5" style={{ height: `${CHART_H}px` }}>
+
+        {/* Left: PQ (full height) */}
+        <div className="w-[44%] bg-mg-cyan/20 border-2 border-mg-cyan flex flex-col items-center justify-center gap-0.5 shadow-[4px_4px_0px_#000]">
+          <span className="font-dot text-mg-cyan text-sm">P × Q</span>
+          <span className="font-dot text-[10px] text-mg-text-secondary">売上高</span>
+          <span className="font-dot text-[10px] text-mg-text-secondary">(価格 × 数量)</span>
+          <span className="font-mono text-mg-cyan font-bold text-lg mt-1">{fmt(pq)}</span>
+        </div>
+
+        {/* Right: VQ (top) + MQ row (bottom) */}
+        <div className="flex-1 flex flex-col gap-1.5">
+
+          {/* VQ */}
+          <div
+            className="w-full bg-mg-danger/20 border-2 border-mg-danger flex flex-col items-center justify-center gap-0.5 shadow-[4px_4px_0px_#000] overflow-hidden"
+            style={{ height: `${vqH}px` }}
+          >
+            <span className="font-dot text-mg-danger text-sm">V × Q</span>
+            <span className="font-dot text-[10px] text-mg-text-secondary">原価総額</span>
+            <span className="font-dot text-[10px] text-mg-text-secondary">(原価 × 数量)</span>
+            <span className="font-mono text-mg-danger font-bold mt-1">{fmt(vq)}</span>
+          </div>
+
+          {/* MQ row: MQ label + F/G column */}
+          <div className="w-full flex gap-1.5" style={{ height: `${mqH}px` }}>
+
+            {/* MQ label */}
+            <div className="flex-1 bg-mg-gold/20 border-2 border-mg-gold flex flex-col items-center justify-center gap-0.5 shadow-[4px_4px_0px_#000] overflow-hidden">
+              <span className="font-dot text-mg-gold text-sm">M × Q</span>
+              {!smallMq && <span className="font-dot text-[10px] text-mg-text-secondary">粗利総額</span>}
+              {!smallMq && <span className="font-dot text-[10px] text-mg-text-secondary">(粗利 × 数量)</span>}
+              <span className="font-mono text-mg-gold font-bold mt-1">{fmt(mq)}</span>
             </div>
-            {/* F / G row aligned to MQ column */}
-            <div className="flex gap-1.5 h-[100px]" style={{ justifyContent: 'flex-end' }}>
-              {r.grossProfit > 0 && (
-                <>
-                  <div
-                    className="bg-mg-text-secondary/10 border-2 border-mg-border flex flex-col items-center justify-center shadow-[4px_4px_0px_#000]"
-                    style={{ width: `${mqPct * fInMq / 100}%` }}
-                  >
-                    <span className="font-dot text-mg-text-secondary text-xs">F</span>
-                    <span className="font-mono text-xs text-mg-text-secondary">{fmt(r.fixedCosts)}</span>
-                  </div>
-                  {gInMq > 0 && (
-                    <div
-                      className={`border-2 flex flex-col items-center justify-center shadow-[4px_4px_0px_#000] ${
-                        isProfit ? 'bg-mg-success/20 border-mg-success' : 'bg-mg-danger/20 border-mg-danger'
-                      }`}
-                      style={{ width: `${mqPct * gInMq / 100}%`, minWidth: '2%' }}
-                    >
-                      <span className={`font-dot text-xs ${isProfit ? 'text-mg-success' : 'text-mg-danger'}`}>G</span>
-                      <span className={`font-mono text-xs ${isProfit ? 'text-mg-success' : 'text-mg-danger'}`}>
-                        {fmt(r.opProfit)}
-                      </span>
-                    </div>
-                  )}
-                </>
-              )}
-              {r.grossProfit <= 0 && (
+
+            {/* F + G column */}
+            <div className="w-[40%] flex flex-col gap-1.5 overflow-hidden" style={{ height: `${mqH}px` }}>
+
+              {/* F */}
+              <div
+                className={`w-full flex flex-col items-center justify-center gap-0.5 shadow-[4px_4px_0px_#000] overflow-hidden ${
+                  isProfit
+                    ? 'bg-mg-text-secondary/10 border-2 border-mg-border'
+                    : 'bg-mg-danger/20 border-2 border-mg-danger'
+                }`}
+                style={{ height: `${fHInMq}px` }}
+              >
+                <span className={`font-dot text-sm ${isProfit ? 'text-mg-text-secondary' : 'text-mg-danger'}`}>F</span>
+                <span className={`font-dot text-[10px] ${isProfit ? 'text-mg-text-secondary' : 'text-mg-danger'}`}>固定費</span>
+                <span className={`font-mono text-xs font-bold ${isProfit ? 'text-mg-text-secondary' : 'text-mg-danger'}`}>{fmt(f)}</span>
+              </div>
+
+              {/* G (黒字のみ) */}
+              {isProfit && gHInMq >= 8 && (
                 <div
-                  className="bg-mg-danger/20 border-2 border-mg-danger flex items-center justify-center"
-                  style={{ width: `${mqPct}%` }}
+                  className="w-full bg-mg-success/20 border-2 border-mg-success flex flex-col items-center justify-center gap-0.5 shadow-[4px_4px_0px_#000] overflow-hidden"
+                  style={{ height: `${gHInMq}px` }}
                 >
-                  <span className="font-dot text-mg-danger text-xs">赤字</span>
+                  <span className="font-dot text-mg-success text-sm">G</span>
+                  <span className="font-dot text-[10px] text-mg-success">利益</span>
+                  <span className="font-mono text-xs text-mg-success font-bold">+{fmt(g)}</span>
                 </div>
               )}
             </div>
-            {/* Axis labels */}
-            <div className="flex justify-between mt-2 text-xs text-mg-text-secondary font-dot">
-              <span>← Q (販売量) →</span>
-              <span>MQ率 {mqRate}%</span>
+
+          </div>
+        </div>
+      </div>
+
+      {/* Overflow: F が MQ 枠を突き抜けた損失部分 */}
+      {overflowH > 0 && (
+        <div className="flex gap-1.5">
+          <div className="w-[44%]" />
+          <div className="flex-1 flex gap-1.5">
+            <div className="flex-1" />
+            <div
+              className="w-[40%] bg-mg-danger/40 border-2 border-t-0 border-mg-danger flex flex-col items-center justify-center gap-0.5 shadow-[4px_4px_0px_#000]"
+              style={{ height: `${overflowH}px` }}
+            >
+              <span className="font-dot text-mg-danger text-xs">G (損失)</span>
+              <span className="font-mono text-mg-danger text-xs font-bold">-{fmt(Math.abs(g))}</span>
             </div>
           </div>
         </div>
-      </Card>
+      )}
+
+      {/* フッター */}
+      <div className="mt-3 flex justify-between font-dot text-xs text-mg-text-secondary border-t border-mg-border pt-2">
+        <span>MQ率 {mqRate}%</span>
+        <span className={`font-bold ${isProfit ? 'text-mg-success' : 'text-mg-danger'}`}>
+          G = {isProfit ? '+' : ''}{fmt(g)}
+        </span>
+      </div>
     </div>
   );
 }
